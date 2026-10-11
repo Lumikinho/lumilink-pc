@@ -79,6 +79,27 @@ public sealed class PairingManager
         return fallback ?? "127.0.0.1";
     }
 
+    // Todos os IPv4 locais (p/ detectar o próprio anúncio no mDNS).
+    public static HashSet<string> LocalIps()
+    {
+        var set = new HashSet<string>();
+        try
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    if (IPAddress.IsLoopback(ua.Address)) continue;
+                    set.Add(ua.Address.ToString());
+                }
+            }
+        }
+        catch { }
+        return set;
+    }
+
     public string QrJson(string ip, int port, string token, string fingerprint, string deviceId)
         => JsonSerializer.Serialize(new { ip, port, token, fingerprint, deviceId });
 }

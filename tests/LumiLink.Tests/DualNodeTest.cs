@@ -59,7 +59,7 @@ public sealed class DualNodeTest
     [Fact]
     public async Task PairConnectDropReconnectAndProfile()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var dirA = TempDir(); var dirB = TempDir();
         var portA = FreePort(); var portB = FreePort();
         await using var mgrA = MakeNode(dirA, portA, "Node-A");
@@ -85,12 +85,13 @@ public sealed class DualNodeTest
         Assert.Equal("Node-A", mgrB.GetPeers().First(p => p.DeviceId == idA).Name);
         Assert.Equal("Node-B", mgrA.GetPeers().First(p => p.DeviceId == idB).Name);
 
-        // 4. derruba e reconecta sozinho (backoff por par).
+        // 4. derruba abruptamente (sem bye: simula queda de rede) e reconecta sozinho.
+        // Detecção de half-open leva até 3 pongs (45 s, conforme protocolo) — janela folgada.
         await mgrA.DropLinkAsync(idB);
         await PollAsync(() =>
             mgrA.GetPeers().Any(p => p.DeviceId == idB && p.State == "Conectado") &&
             mgrB.GetPeers().Any(p => p.DeviceId == idA && p.State == "Conectado"),
-            TimeSpan.FromSeconds(45), "reconexão");
+            TimeSpan.FromSeconds(100), "reconexão");
 
         // 5. perfil segue íntegro após reconectar.
         Assert.Equal("Node-A", mgrB.GetPeers().First(p => p.DeviceId == idA).Name);

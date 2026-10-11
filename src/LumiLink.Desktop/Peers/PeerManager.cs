@@ -188,7 +188,7 @@ public sealed class PeerManager : IAsyncDisposable
         }
     }
 
-    public Task ReconnectNowAsync(string deviceId)
+    public async Task ReconnectNowAsync(string deviceId)
     {
         Link? link = null;
         lock (_lock)
@@ -199,8 +199,12 @@ public sealed class PeerManager : IAsyncDisposable
                 link = s.Link;
             }
         }
+        if (link is not null)
+        {
+            try { await link.Send(Message.Create("bye", new { reason = "going-away" })); } catch { }
+            try { await link.Close(); } catch { }
+        }
         _log($"[conn] reconexão forçada de {deviceId}.");
-        return link?.Close() ?? Task.CompletedTask;
     }
 
     public async Task ForgetAsync(string deviceId)
@@ -212,7 +216,11 @@ public sealed class PeerManager : IAsyncDisposable
             link = s?.Link;
             if (s is not null) { s.Link = null; _sessions.Remove(deviceId); }
         }
-        if (link is not null) try { await link.Close(); } catch { }
+        if (link is not null)
+        {
+            try { await link.Send(Message.Create("bye", new { reason = "going-away" })); } catch { }
+            try { await link.Close(); } catch { }
+        }
         _pairs.Forget(deviceId);
         _profiles.ForgetPeer(deviceId);
         _log($"[pair] esquecido {deviceId}.");
@@ -248,6 +256,9 @@ public sealed class PeerManager : IAsyncDisposable
     {
         if (id == _settings.DeviceId)
         {
+            // Vejo meu próprio anúncio (loopback mDNS) — ignora; colisão real
+            // seria meu id vindo de outro endpoint.
+            if (port == _settings.Port && Pairing.PairingManager.LocalIps().Contains(ip)) return;
             _log("[mdns] AVISO: outro nó anuncia MEU deviceId — colisão de UUID!");
             return;
         }
@@ -304,14 +315,15 @@ public sealed class PeerManager : IAsyncDisposable
             if (busy) { _log($"[loop] {s.Id} aguardando handshake… (canceled={ct.IsCancellationRequested})"); try { await Task.Delay(2000, ct); } catch (Exception ex) { _log($"[loop] {s.Id} SAINDO busy: {ex.GetType().Name}"); return; } continue; }
 
             s.State = PeerConnState.Conectando; Changed?.Invoke();
-            string ip; int port;
-            bool fresh;
+            var targets = new List<(string ip, int port)>();
             lock (_lock)
             {
-                fresh = !string.IsNullOrEmpty(s.DiscIp) && DateTime.UtcNow - s.DiscAt < TimeSpan.FromSeconds(60);
+                if (!string.IsNullOrEmpty(s.DiscIp) && DateTime.UtcNow - s.DiscAt < TimeSpan.FromSeconds(60))
+                    targets.Add((s.DiscIp, s.DiscPort));
                 var rec = _pairs.Get(s.Id);
-                ip = fresh ? s.DiscIp : (rec?.LastIp ?? "");
-                port = fresh ? s.DiscPort : (rec?.LastPort ?? 0);
+                if (rec is not null && !string.IsNullOrEmpty(rec.LastIp) && rec.LastPort != 0
+                    && !targets.Any(t => t.ip == rec.LastIp && t.port == rec.LastPort))
+                    targets.Add((rec.LastIp, rec.LastPort));
             }
             bool iAmSmaller = string.CompareOrdinal(_settings.DeviceId, s.Id) < 0;
             if (!iAmSmaller)
@@ -319,18 +331,27 @@ public sealed class PeerManager : IAsyncDisposable
                 var quiet = DateTime.UtcNow - (s.LinkLostAt > s.DiscAt ? s.LinkLostAt : s.DiscAt);
                 if (quiet < TimeSpan.FromSeconds(10)) { try { await Task.Delay(1000, ct); } catch { return; } continue; }
             }
-            if (string.IsNullOrEmpty(ip) || port == 0) { try { await Task.Delay(5000, ct); } catch { return; } continue; }
-            _log($"[loop] {s.Id} discando {ip}:{port} (smaller={iAmSmaller})…");
-            try
+            if (targets.Count == 0) { try { await Task.Delay(5000, ct); } catch { return; } continue; }
+            bool ok = false;
+            for (var ti = 0; ti < targets.Count && !ok; ti++)
             {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromSeconds(35));
-                await DialAndHandshakeAsync(s, ip, port, cts.Token);
-                lock (_lock) { s.Backoff = TimeSpan.FromSeconds(1); }
+                var (ip, port) = targets[ti];
+                _log($"[loop] {s.Id} discando {ip}:{port} (smaller={iAmSmaller})…");
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(ti == 0 && targets.Count > 1 ? 12 : 35));
+                    await DialAndHandshakeAsync(s, ip, port, cts.Token);
+                    lock (_lock) { s.Backoff = TimeSpan.FromSeconds(1); }
+                    ok = true;
+                }
+                catch (Exception ex)
+                {
+                    _log($"[conn] {s.Id} falhou em {ip}:{port}: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            if (!ok)
             {
-                _log($"[conn] {s.Id} falhou: {ex.Message}");
                 lock (_lock) s.State = PeerConnState.Desconectado;
                 Changed?.Invoke();
             }
@@ -607,8 +628,9 @@ public sealed class PeerManager : IAsyncDisposable
             var ct = link.Cts.Token;
             try
             {
-                while (!ct.IsCancellationRequested && link.IsOpen())
+                while (!ct.IsCancellationRequested)
                 {
+                    if (!link.IsOpen()) { DetachLink(link); break; } // socket mudou: derruba na hora
                     await Task.Delay(TimeSpan.FromSeconds(15), ct);
                     try { await link.Send(Message.Create("ping", new { })); }
                     catch { DetachLink(link); break; } // envio falhou = caída
@@ -738,6 +760,11 @@ public sealed class PeerManager : IAsyncDisposable
             var reason = "";
             try { reason = msg.Payload.Deserialize<ByePayload>(Message.PayloadOptions)?.Reason ?? ""; } catch { }
             _log($"[conn] bye de {ctx.DeviceId ?? "?"} ({reason}).");
+            Link? dead = null; // bye válido derruba o link na hora (fecha limpo, sem esperar ping)
+            lock (_lock)
+                foreach (var s in _sessions.Values)
+                    if (s.Link is not null && ReferenceEquals(s.Link.Ctx, ctx)) dead = s.Link;
+            if (dead is not null) DetachLink(dead);
             return Task.CompletedTask;
         });
         Messaging.EchoExample.Register(_router, _log);
