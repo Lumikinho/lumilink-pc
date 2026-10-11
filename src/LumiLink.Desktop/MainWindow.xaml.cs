@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         _router = new MessageRouter(Log);
         _peers = new PeerManager(App.Settings, _certs, _pairs, _profiles, _pairing, _router, Log);
         _peers.Changed += () => Dispatcher.Invoke(RefreshPeers);
+        _peers.Notify += (title, text) => Dispatcher.Invoke(() => _tray?.Balloon(title, text));
         _tray = new TrayIconManager("LumiLink", RestoreWindow, () => Close());
         Loaded += async (_, _) =>
         {
@@ -102,6 +103,7 @@ public partial class MainWindow : Window
         {
             var rtt = await _peers.PingAsync(peer.DeviceId, TimeSpan.FromSeconds(10));
             Log($"[ping] {peer.Name}: pong em {(int)rtt.TotalMilliseconds}ms.");
+            _tray?.Balloon("Pong recebido", $"{peer.Name} em {(int)rtt.TotalMilliseconds}ms.");
         }
         catch (Exception ex) { Log($"[ping] {peer.Name}: sem resposta ({ex.Message})."); }
     }

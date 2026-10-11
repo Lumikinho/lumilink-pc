@@ -25,5 +25,7 @@ public sealed class TrayIconManager : IDisposable
         var t = $"LumiLink — {state}";
         _icon.Text = t.Length > 63 ? t[..63] : t;
     }
+    public void Balloon(string title, string text)
+        => _icon.ShowBalloonTip(3000, title, text, ToolTipIcon.Info);
     public void Dispose() { _icon.Visible = false; _icon.Dispose(); }
 }

@@ -80,6 +80,7 @@ public sealed class PeerManager : IAsyncDisposable
     private CancellationTokenSource? _runCts;
 
     public event Action? Changed;
+    public event Action<string, string>? Notify; // (título, texto) p/ balão da bandeja
     public string DeviceId => _settings.DeviceId;
     public int Port => _settings.Port;
     public string OwnFingerprint => _certs.Fingerprint;
@@ -254,7 +255,7 @@ public sealed class PeerManager : IAsyncDisposable
         Link? link;
         lock (_lock) link = _sessions.TryGetValue(deviceId, out var s) ? s.Link : null;
         if (link is null || !link.IsOpen()) throw new InvalidOperationException("sem conexão ativa.");
-        var ping = Message.Create("ping", new { });
+        var ping = Message.Create("ping", new { manual = true }); // manual avisa o outro lado
         var tcs = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pingWaiters[ping.Id] = (tcs, Stopwatch.StartNew());
         try
@@ -743,6 +744,16 @@ public sealed class PeerManager : IAsyncDisposable
         _router.Register("ping", async (ctx, msg) =>
         {
             await ctx.SendAsync(Message.Create("pong", new { echo = msg.Id }));
+            try
+            {
+                if (msg.Payload.TryGetProperty("manual", out var man)
+                    && man.ValueKind == JsonValueKind.True && ctx.DeviceId is not null)
+                {
+                    var peerName = _pairs.Get(ctx.DeviceId)?.Name ?? ctx.DeviceId;
+                    Notify?.Invoke("Ping recebido", $"De {peerName}.");
+                }
+            }
+            catch { }
         });
         _router.Register("pong", (ctx, msg) =>
         {
