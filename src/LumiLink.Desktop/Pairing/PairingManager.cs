@@ -37,17 +37,34 @@ public sealed class PairingManager
     public static string NewSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
     public static string NewNonce() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
 
+    // Prefere RFC1918 (rede local) e ignora VPN/virtuais (Tailscale, Docker, WSL...).
+    // Antes retornava a 1ª interface — que podia ser o IP do Tailscale, inalcançável pelo celular.
     public static string LocalIp()
     {
+        string? fallback = null;
         foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (ni.OperationalStatus != OperationalStatus.Up) continue;
             if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            var name = (ni.Name + " " + ni.Description).ToLowerInvariant();
+            if (name.Contains("tailscale") || name.Contains("docker") || name.Contains("veth")
+                || name.Contains("vmware") || name.Contains("virtualbox") || name.Contains("vpn")
+                || name.Contains("tun") || name.Contains("tap") || name.Contains("wireguard")
+                || name.Contains("hyper-v") || name.Contains("wsl")) continue;
             foreach (var ua in ni.GetIPProperties().UnicastAddresses)
-                if (ua.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(ua.Address))
-                    return ua.Address.ToString();
+            {
+                if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                if (IPAddress.IsLoopback(ua.Address)) continue;
+                var b = ua.Address.GetAddressBytes();
+                if (b[0] == 169 && b[1] == 254) continue; // link-local
+                if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) continue; // CGNAT (Tailscale)
+                bool rfc1918 = b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+                    || (b[0] == 192 && b[1] == 168);
+                if (rfc1918) return ua.Address.ToString();
+                fallback ??= ua.Address.ToString();
+            }
         }
-        return "127.0.0.1";
+        return fallback ?? "127.0.0.1";
     }
 
     public string QrJson(string ip, int port, string token, string fingerprint, string deviceId)
