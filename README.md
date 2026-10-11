@@ -1,16 +1,18 @@
-# lumilink-pc — servidor (C# .NET 8 WPF)
+# lumilink-pc — nó P2P (C# .NET 8 WPF)
 
-Lado PC do LumiLink: conecta, pareia uma vez (QR) e mantém conexão persistente
-com o celular. App irmão: `lumilink-android`.
+Nó simétrico do LumiLink: **servidor (wss + mDNS) e cliente** ao mesmo tempo.
+Conversa com PC, Android ou ambos. App irmão: `lumilink-android`.
+Protocolo: `PROTOCOL.md` (idêntico nas 3 combinações).
 
 ## O que faz (só a base)
 
-- Servidor `wss` (Kestrel) com certificado autoassinado gerado na 1ª execução.
-- Pareamento via QR (`ip, porta, token 2min, fingerprint, deviceId`) + pinning manual.
-- Reconexão sem QR: desafio `auth` com HMAC-SHA256 do segredo de 32 bytes.
-- `ping/pong` 15s (3 faltas = caída), anúncio mDNS `_lumilink._tcp`.
-- Perfil `{ deviceId, name, photoHash, photo }` com troca `profile`/`profile_photo*`.
-- Bandeja (tray) com tooltip do parceiro, autostart, lista de pareados + "Esquecer".
+- Servidor `wss` (Kestrel, porta aleatória persistida) + cliente `ClientWebSocket` com pinning.
+- Anuncia e descobre `_lumilink._tcp` (mDNS); só o menor `deviceId` disca (regra 10 s).
+- Pareamento via QR **ou manual** (IP:porta + código 6 dígitos); auth mútua HMAC.
+- Vários pares: uma conexão por par, backoff independente, rate limit.
+- Perfil com troca `profile`/`profile_photo*`; `profile_update` ao salvar.
+- Tela principal: lista de pareados (foto, nome, estado) + Parear / Manual / Atualizar;
+  detalhe do par (último IP, última conexão, Reconectar agora, Esquecer).
 
 ## Protocolo (resumo)
 
