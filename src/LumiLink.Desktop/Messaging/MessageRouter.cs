@@ -31,12 +31,13 @@ public sealed class MessageRouter
 
 public sealed class MessageContext
 {
-    public WebSocket Socket { get; }
+    public WebSocket? Socket { get; } // null no lado cliente (WsClient)
+    public string? RemoteIp { get; set; } // preenchido pelo servidor
     public string? DeviceId { get; set; }
     public bool Authenticated { get; set; }
     public Func<Message, Task> SendAsync { get; }
 
-    public MessageContext(WebSocket socket, Func<Message, Task> send)
+    public MessageContext(WebSocket? socket, Func<Message, Task> send)
     { Socket = socket; SendAsync = send; }
 }
 

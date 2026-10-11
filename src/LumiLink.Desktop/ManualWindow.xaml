@@ -1,0 +1,12 @@
+<Window x:Class="LumiLink.Desktop.ManualWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conectar manualmente" Height="300" Width="340">
+  <StackPanel Margin="16">
+    <TextBlock Text="IP do par:"/><TextBox x:Name="IpBox" Margin="0,2,0,8"/>
+    <TextBlock Text="Porta:"/><TextBox x:Name="PortBox" Margin="0,2,0,8"/>
+    <TextBlock Text="Código de 6 dígitos:"/><TextBox x:Name="CodeBox" MaxLength="6" Margin="0,2,0,8"/>
+    <Button Content="Parear" Click="BtnGo_Click"/>
+    <TextBlock x:Name="ErrLabel" Foreground="Red" TextWrapping="Wrap" Margin="0,8,0,0"/>
+  </StackPanel>
+</Window>

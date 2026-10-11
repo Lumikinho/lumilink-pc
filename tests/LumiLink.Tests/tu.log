@@ -1,0 +1,56 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  LumiLink.Desktop -> C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll
+  LumiLink.Tests -> C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll
+Execu├º├úo de teste para C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll (.NETCoreApp,Version=v8.0)
+Vers├úo do VSTest 17.11.1 (x64)
+
+Iniciando execu├º├úo de teste, espere...
+1 arquivos de teste no total corresponderam ao padr├úo especificado.
+dotnet : [xUnit.net 00:00:27.26]     LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [FAIL]
+No linha:1 caractere:145
++ ... h","User"); dotnet test "C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLi ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...dProfile [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Com falha LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [26 s]
+  Mensagem de erro:
+   System.Net.WebSockets.WebSocketException : The remote party closed the WebSocket connection without completing the close handshake.
+---- System.ObjectDisposedException : Cannot access a disposed object.
+Object name: 'System.Net.WebSockets.WebSocket'.
+  Rastreamento de pilha:
+     at System.Net.WebSockets.ManagedWebSocket.ReceiveAsyncPrivate[TResult](Memory`1 payloadBuffer, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+   at System.Net.WebSockets.ManagedWebSocket.CloseAsyncPrivate(WebSocketCloseStatus closeStatus, String statusDescription, CancellationToken cancellationToken)
+   at LumiLink.Desktop.Peers.PeerManager.DropLinkAsync(String deviceId) in C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\Peers\PeerManager.cs:line 240
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 89
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at System.Net.WebSockets.ManagedWebSocket.ReceiveAsyncPrivate[TResult](Memory`1 payloadBuffer, CancellationToken cancellationToken)
+  Mensagens de sa├¡da padr├úo:
+ [Node-A] [tls] certificado autoassinado gerado.
+ [Node-A] [tls] fingerprint: e6d1aacc33478829781815f7406f89e2b933261225bb5f46a8c56cffbdc97d9c
+ [Node-B] [tls] certificado autoassinado gerado.
+ [Node-B] [tls] fingerprint: 830c2875cc7ebd3acdca06ebe4f5a9d1dbd2c6bc54bab6f241e1131514e851cb
+ [Node-A] [mdns] anunciando _lumilink._tcp porta 63054 id=52641a1a-1039-4c7d-af90-4a39f8371589.
+ [Node-A] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-A] [net] wss ouvindo em 0.0.0.0:63054/ws
+ [Node-A] [net] wss ouvindo em 0.0.0.0:63054/ws
+ [Node-B] [mdns] anunciando _lumilink._tcp porta 63055 id=e0270914-1aea-4229-82f9-b7384c667f2a.
+ [Node-B] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-B] [net] wss ouvindo em 0.0.0.0:63055/ws
+ [Node-B] [net] wss ouvindo em 0.0.0.0:63055/ws
+ [Node-A] [pair] credencial gerada (token + c├│digo 6 d├¡gitos, 2 min).
+ [Node-A] [net] par conectou (tcp/ws).
+ [Node-A] [pair] pareado com e0270914-1aea-4229-82f9-b7384c667f2a.
+ [Node-B] [pair] PAREADO com 52641a1a-1039-4c7d-af90-4a39f8371589.
+ [Node-A] [profile] recebido: Node-B.
+ [Node-A] [net] socket encerrado.
+ [Node-A] [conn] ca├¡da. Backoff por par.
+
+
+
+Com falha! ÔÇô Com falha:     1, Aprovado:     0, Ignorado:     0, Total:     1, Dura├º├úo: < 1 ms - LumiLink.Tests.dll (net8.0)

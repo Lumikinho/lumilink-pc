@@ -1,0 +1,23 @@
+<Window x:Class="LumiLink.Desktop.PeerDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Detalhe do par" Height="440" Width="360">
+  <StackPanel Margin="16">
+    <StackPanel Orientation="Horizontal">
+      <Image x:Name="PhotoView" Width="64" Height="64" Margin="0,0,8,0"/>
+      <StackPanel>
+        <TextBlock x:Name="NameLabel" FontSize="16" FontWeight="Bold"/>
+        <TextBlock x:Name="StateLabel"/>
+      </StackPanel>
+    </StackPanel>
+    <TextBlock x:Name="IdLabel" TextWrapping="Wrap" Margin="0,8,0,0" Opacity="0.7"/>
+    <TextBlock x:Name="AddrLabel" Margin="0,4,0,0"/>
+    <TextBlock x:Name="SeenLabel" Margin="0,4,0,0"/>
+    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+      <Button Content="Reconectar agora" Click="BtnReconnect_Click" Margin="0,0,8,0"/>
+      <Button Content="Esquecer" Click="BtnForget_Click" Margin="0,0,8,0"/>
+      <Button Content="Fechar" Click="BtnClose_Click"/>
+    </StackPanel>
+    <TextBlock x:Name="ErrLabel" Foreground="Red" Margin="0,8,0,0"/>
+  </StackPanel>
+</Window>

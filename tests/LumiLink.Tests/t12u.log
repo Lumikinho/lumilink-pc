@@ -1,0 +1,11 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  LumiLink.Desktop -> C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll
+  LumiLink.Tests -> C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll
+Execu├º├úo de teste para C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll (.NETCoreApp,Version=v8.0)
+Vers├úo do VSTest 17.11.1 (x64)
+
+Iniciando execu├º├úo de teste, espere...
+1 arquivos de teste no total corresponderam ao padr├úo especificado.
+
+Aprovado!  ÔÇô Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Dura├º├úo: < 1 ms - LumiLink.Tests.dll (net8.0)

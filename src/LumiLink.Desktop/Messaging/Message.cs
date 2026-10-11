@@ -28,10 +28,10 @@ public sealed record Message(
 }
 
 // Payloads tipados (evita magic strings espalhadas)
-public sealed record HelloPayload(string? Token, string DeviceId, string DeviceName, ProfilePayload? Profile);
+public sealed record HelloPayload(string? Token, string? Code, string DeviceId, string DeviceName, ProfilePayload? Profile, string? Fingerprint, int Port);
 public sealed record ProfilePayload(string Name, string PhotoHash);
 public sealed record AuthChallengePayload(string Nonce);
-public sealed record AuthResponsePayload(string DeviceId, string Hmac);
-public sealed record AuthOkPayload(string? Secret = null, string? DeviceId = null);
+public sealed record AuthResponsePayload(string DeviceId, string Hmac, string? Nonce);
+public sealed record AuthOkPayload(string? Secret = null, string? DeviceId = null, ProfilePayload? Profile = null, string? Hmac = null);
 public sealed record ProfilePhotoPayload(string PhotoHash, string Mime, string DataBase64);
 public sealed record ByePayload(string Reason);

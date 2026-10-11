@@ -1,0 +1,71 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  LumiLink.Desktop -> C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll
+  LumiLink.Tests -> C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll
+Execu├º├úo de teste para C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll (.NETCoreApp,Version=v8.0)
+Vers├úo do VSTest 17.11.1 (x64)
+
+Iniciando execu├º├úo de teste, espere...
+1 arquivos de teste no total corresponderam ao padr├úo especificado.
+dotnet : [xUnit.net 00:00:59.76]     LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [FAIL]
+No linha:1 caractere:145
++ ... h","User"); dotnet test "C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLi ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...dProfile [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Com falha LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [59 s]
+  Mensagem de erro:
+   System.TimeoutException : timeout esperando: reconex├úo
+  Rastreamento de pilha:
+     at LumiLink.Tests.DualNodeTest.PollAsync(Func`1 cond, TimeSpan timeout, String what) in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 56
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 90
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+--- End of stack trace from previous location ---
+  Mensagens de sa├¡da padr├úo:
+ [Node-A] [tls] certificado autoassinado gerado.
+ [Node-A] [tls] fingerprint: 80f1ef5fadaf0d58327b4a4e1cea540fab77a26c4431ebafe52ba7d3034556cd
+ [Node-B] [tls] certificado autoassinado gerado.
+ [Node-B] [tls] fingerprint: 4523805b28afeda2dff9045f88e40dff1374d848c421385a08d87871af4c265f
+ [Node-A] [mdns] anunciando _lumilink._tcp porta 56758 id=034308b8-a9b3-4ffb-bd1d-c9eac7211124.
+ [Node-A] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-A] [net] wss ouvindo em 0.0.0.0:56758/ws
+ [Node-A] [net] wss ouvindo em 0.0.0.0:56758/ws
+ [Node-B] [mdns] anunciando _lumilink._tcp porta 56759 id=4379f778-13b7-488b-81f0-59ea542d6a54.
+ [Node-B] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-B] [net] wss ouvindo em 0.0.0.0:56759/ws
+ [Node-B] [net] wss ouvindo em 0.0.0.0:56759/ws
+ [Node-A] [pair] credencial gerada (token + c├│digo 6 d├¡gitos, 2 min).
+ [Node-A] [net] par conectou (tcp/ws).
+ [Node-A] [loop] 4379f778-13b7-488b-81f0-59ea542d6a54 aguardando handshakeÔÇª (canceled=False)
+ [Node-A] [pair] pareado com 4379f778-13b7-488b-81f0-59ea542d6a54.
+ [Node-B] [loop] 034308b8-a9b3-4ffb-bd1d-c9eac7211124 aguardando handshakeÔÇª (canceled=False)
+ [Node-B] [pair] PAREADO com 034308b8-a9b3-4ffb-bd1d-c9eac7211124.
+ [Node-A] [profile] recebido: Node-B.
+ [Node-A] [conn] ca├¡da. Backoff por par.
+ [Node-A] [loop] 4379f778-13b7-488b-81f0-59ea542d6a54 discando 127.0.0.1:56759 (smaller=True)ÔÇª
+ [Node-B] [net] par conectou (tcp/ws).
+ [Node-B] [conn] 034308b8-a9b3-4ffb-bd1d-c9eac7211124 rediscou certo; assumindo entrada.
+ [Node-A] [net] loop caiu: The remote party closed the WebSocket connection without completing the close handshake.
+ [Node-A] [net] socket encerrado.
+ [Node-B] [loop] 034308b8-a9b3-4ffb-bd1d-c9eac7211124 discando 127.0.0.1:56758 (smaller=False)ÔÇª
+ [Node-A] [net] par conectou (tcp/ws).
+ [Node-A] [conn] 4379f778-13b7-488b-81f0-59ea542d6a54 falhou: The operation has timed out.
+ [Node-A] [loop] 4379f778-13b7-488b-81f0-59ea542d6a54 discando 127.0.0.1:56759 (smaller=True)ÔÇª
+ [Node-B] [net] par conectou (tcp/ws).
+ [Node-B] [conn] 034308b8-a9b3-4ffb-bd1d-c9eac7211124: cedendo vez ├á entrada (sou maior).
+ [Node-B] [conn] 034308b8-a9b3-4ffb-bd1d-c9eac7211124: abortei minha discagem (entrada do menor vence).
+ [Node-B] [loop] 034308b8-a9b3-4ffb-bd1d-c9eac7211124 discando 127.0.0.1:56758 (smaller=False)ÔÇª
+ [Node-A] [net] par conectou (tcp/ws).
+ [Node-B] [net] socket encerrado.
+ [Node-A] [net] socket encerrado.
+ [Node-A] [conn] 4379f778-13b7-488b-81f0-59ea542d6a54 falhou: The operation has timed out.
+ [Node-B] [conn] 034308b8-a9b3-4ffb-bd1d-c9eac7211124 falhou: The operation has timed out.
+ [Node-A] [loop] 4379f778-13b7-488b-81f0-59ea542d6a54 discando 127.0.0.1:56759 (smaller=True)ÔÇª
+ [Node-B] [net] par conectou (tcp/ws).
+ [Node-A] [conn] 4379f778-13b7-488b-81f0-59ea542d6a54 falhou: A task was canceled.
+
+
+
+Com falha! ÔÇô Com falha:     1, Aprovado:     0, Ignorado:     0, Total:     1, Dura├º├úo: < 1 ms - LumiLink.Tests.dll (net8.0)

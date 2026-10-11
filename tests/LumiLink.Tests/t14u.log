@@ -1,0 +1,14 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  LumiLink.Desktop -> C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll
+C:\Program Files\dotnet\sdk\8.0.425\Microsoft.Common.CurrentVersion.targets(5034,5): warning MSB3026: n├úo foi poss├¡vel copiar "C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll" para "bin\Debug\net8.0-windows\LumiLink.Desktop.dll". Iniciando nova tentativa 1 em 1000ms. The process cannot access the file 'C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Desktop.dll' because it is being used by another process. O arquivo ├® bloqueado por: "testhost (18800)" [C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\LumiLink.Tests.csproj]
+C:\Program Files\dotnet\sdk\8.0.425\Microsoft.Common.CurrentVersion.targets(5034,5): warning MSB3026: n├úo foi poss├¡vel copiar "C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll" para "bin\Debug\net8.0-windows\LumiLink.Desktop.dll". Iniciando nova tentativa 2 em 1000ms. The process cannot access the file 'C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Desktop.dll' because it is being used by another process. O arquivo ├® bloqueado por: "testhost (18800)" [C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\LumiLink.Tests.csproj]
+C:\Program Files\dotnet\sdk\8.0.425\Microsoft.Common.CurrentVersion.targets(5034,5): warning MSB3026: n├úo foi poss├¡vel copiar "C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll" para "bin\Debug\net8.0-windows\LumiLink.Desktop.dll". Iniciando nova tentativa 3 em 1000ms. The process cannot access the file 'C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Desktop.dll' because it is being used by another process. O arquivo ├® bloqueado por: "testhost (18800)" [C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\LumiLink.Tests.csproj]
+  LumiLink.Tests -> C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll
+Execu├º├úo de teste para C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll (.NETCoreApp,Version=v8.0)
+Vers├úo do VSTest 17.11.1 (x64)
+
+Iniciando execu├º├úo de teste, espere...
+1 arquivos de teste no total corresponderam ao padr├úo especificado.
+
+Aprovado!  ÔÇô Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Dura├º├úo: 15 s - LumiLink.Tests.dll (net8.0)

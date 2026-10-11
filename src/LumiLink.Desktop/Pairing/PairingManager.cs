@@ -6,39 +6,51 @@ using System.Text.Json;
 
 namespace LumiLink.Desktop.Pairing;
 
-// Token de uso único (2 min) + payload do QR.
+// Credencial de pareamento de uso único (2 min): token (QR) + código 6 dígitos (manual).
+public sealed record PendingCredential(string Token, string Code, DateTime Expiry);
+
 public sealed class PairingManager
 {
-    private string? _token;
-    private DateTime _tokenExpiry;
+    private PendingCredential? _pending;
+    private readonly object _lock = new();
     private readonly Action<string> _log;
 
     public PairingManager(Action<string> log) => _log = log;
 
-    public string NewToken(TimeSpan? ttl = null)
+    public (string token, string code) NewPairing(TimeSpan? ttl = null)
     {
-        _token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-        _tokenExpiry = DateTime.UtcNow + (ttl ?? TimeSpan.FromMinutes(2));
-        _log($"[pair] token gerado, expira em 2 min.");
-        return _token;
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        var code = Random.Shared.Next(0, 1000000).ToString("D6");
+        lock (_lock) _pending = new PendingCredential(token, code, DateTime.UtcNow + (ttl ?? TimeSpan.FromMinutes(2)));
+        _log("[pair] credencial gerada (token + código 6 dígitos, 2 min).");
+        return (token, code);
     }
 
-    public bool TryConsumeToken(string? token)
+    public bool TryConsume(string? tokenOrCode)
     {
-        if (_token is null || token is null) return false;
-        if (!CryptographicOperations.FixedTimeEquals(
-            System.Text.Encoding.UTF8.GetBytes(token),
-            System.Text.Encoding.UTF8.GetBytes(_token))) return false;
-        if (DateTime.UtcNow > _tokenExpiry) { _token = null; _log("[pair] token expirado."); return false; }
-        _token = null; // uso único
-        return true;
+        if (string.IsNullOrEmpty(tokenOrCode)) return false;
+        lock (_lock)
+        {
+            if (_pending is null) return false;
+            if (DateTime.UtcNow > _pending.Expiry) { _pending = null; _log("[pair] credencial expirada."); return false; }
+            var ok = SlowEquals(tokenOrCode, _pending.Token) || tokenOrCode == _pending.Code;
+            if (ok) _pending = null; // uso único
+            return ok;
+        }
+    }
+
+    private static bool SlowEquals(string a, string b)
+    {
+        var ab = System.Text.Encoding.UTF8.GetBytes(a);
+        var bb = System.Text.Encoding.UTF8.GetBytes(b);
+        if (ab.Length != bb.Length) return false;
+        return CryptographicOperations.FixedTimeEquals(ab, bb);
     }
 
     public static string NewSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
     public static string NewNonce() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
 
-    // Prefere RFC1918 (rede local) e ignora VPN/virtuais (Tailscale, Docker, WSL...).
-    // Antes retornava a 1ª interface — que podia ser o IP do Tailscale, inalcançável pelo celular.
+    // Prefere RFC1918 e ignora VPN/virtuais (Tailscale, Docker, WSL...).
     public static string LocalIp()
     {
         string? fallback = null;
@@ -56,8 +68,8 @@ public sealed class PairingManager
                 if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
                 if (IPAddress.IsLoopback(ua.Address)) continue;
                 var b = ua.Address.GetAddressBytes();
-                if (b[0] == 169 && b[1] == 254) continue; // link-local
-                if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) continue; // CGNAT (Tailscale)
+                if (b[0] == 169 && b[1] == 254) continue;
+                if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) continue;
                 bool rfc1918 = b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
                     || (b[0] == 192 && b[1] == 168);
                 if (rfc1918) return ua.Address.ToString();

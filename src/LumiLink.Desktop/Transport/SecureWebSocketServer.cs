@@ -47,7 +47,8 @@ public sealed class SecureWebSocketServer
                 if (ws.State == WebSocketState.Open)
                     await ws.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
             });
-            _log("[net] celular conectou (tcp/ws).");
+            ctx.RemoteIp = http.Connection.RemoteIpAddress?.ToString();
+            _log("[net] par conectou (tcp/ws).");
             if (OnConnected is not null) await OnConnected(ctx);
             await ReceiveLoopAsync(ctx);
             if (OnDisconnected is not null) await OnDisconnected(ctx.DeviceId);
@@ -63,9 +64,9 @@ public sealed class SecureWebSocketServer
         var sb = new StringBuilder();
         try
         {
-            while (ctx.Socket.State == WebSocketState.Open)
+            while (ctx.Socket?.State == WebSocketState.Open)
             {
-                var res = await ctx.Socket.ReceiveAsync(buf, CancellationToken.None);
+                var res = await ctx.Socket!.ReceiveAsync(buf, CancellationToken.None);
                 if (res.MessageType == WebSocketMessageType.Close) break;
                 sb.Append(Encoding.UTF8.GetString(buf, 0, res.Count));
                 if (res.EndOfMessage)
@@ -82,8 +83,8 @@ public sealed class SecureWebSocketServer
         {
             try
             {
-                if (ctx.Socket.State == WebSocketState.Open)
-                    await ctx.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+                if (ctx.Socket?.State == WebSocketState.Open)
+                    await ctx.Socket!.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
             }
             catch { }
             _log("[net] socket encerrado.");

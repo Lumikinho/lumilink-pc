@@ -1,0 +1,49 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  LumiLink.Desktop -> C:\Users\Lumiko\LumiLink\pc-app\src\LumiLink.Desktop\bin\Debug\net8.0-windows\LumiLink.Desktop.dll
+  LumiLink.Tests -> C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll
+Execu├º├úo de teste para C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\bin\Debug\net8.0-windows\LumiLink.Tests.dll (.NETCoreApp,Version=v8.0)
+Vers├úo do VSTest 17.11.1 (x64)
+
+Iniciando execu├º├úo de teste, espere...
+1 arquivos de teste no total corresponderam ao padr├úo especificado.
+dotnet : [xUnit.net 00:01:12.54]     LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [FAIL]
+No linha:1 caractere:145
++ ... h","User"); dotnet test "C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLi ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...dProfile [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Com falha LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile [1 m 11 s]
+  Mensagem de erro:
+   System.TimeoutException : timeout esperando: reconex├úo
+  Rastreamento de pilha:
+     at LumiLink.Tests.DualNodeTest.PollAsync(Func`1 cond, TimeSpan timeout, String what) in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 56
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 90
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+   at LumiLink.Tests.DualNodeTest.PairConnectDropReconnectAndProfile() in C:\Users\Lumiko\LumiLink\pc-app\tests\LumiLink.Tests\DualNodeTest.cs:line 96
+--- End of stack trace from previous location ---
+  Mensagens de sa├¡da padr├úo:
+ [Node-A] [tls] certificado autoassinado gerado.
+ [Node-A] [tls] fingerprint: ff944f65a257364c55d2e2838f1e3123234e52be1c75a77c988c3d166df15899
+ [Node-B] [tls] certificado autoassinado gerado.
+ [Node-B] [tls] fingerprint: 1c7cbaeb879084bfc9d6ae6fae5d98b501a4c42ad21ef61f72549d1a7318aa95
+ [Node-A] [mdns] anunciando _lumilink._tcp porta 57968 id=734bc1a9-e3de-44f9-9f0c-3eda1753391c.
+ [Node-A] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-A] [net] wss ouvindo em 0.0.0.0:57968/ws
+ [Node-A] [net] wss ouvindo em 0.0.0.0:57968/ws
+ [Node-B] [mdns] anunciando _lumilink._tcp porta 57969 id=a41226e6-43d2-4930-8f3a-2ce2f7f437b8.
+ [Node-B] [fw] regra de firewall solicitada (aceite o UAC se pedir).
+ [Node-B] [net] wss ouvindo em 0.0.0.0:57969/ws
+ [Node-B] [net] wss ouvindo em 0.0.0.0:57969/ws
+ [Node-A] [pair] credencial gerada (token + c├│digo 6 d├¡gitos, 2 min).
+ [Node-A] [net] par conectou (tcp/ws).
+ [Node-A] [pair] pareado com a41226e6-43d2-4930-8f3a-2ce2f7f437b8.
+ [Node-B] [pair] PAREADO com 734bc1a9-e3de-44f9-9f0c-3eda1753391c.
+ [Node-A] [profile] recebido: Node-B.
+ [Node-A] [net] socket encerrado.
+ [Node-A] [conn] ca├¡da. Backoff por par.
+
+
+
+Com falha! ÔÇô Com falha:     1, Aprovado:     0, Ignorado:     0, Total:     1, Dura├º├úo: < 1 ms - LumiLink.Tests.dll (net8.0)
