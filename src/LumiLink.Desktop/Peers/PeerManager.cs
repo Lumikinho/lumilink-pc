@@ -246,7 +246,12 @@ public sealed class PeerManager : IAsyncDisposable
     // ---- descoberta ----
     private void OnPeerSeen(string id, string ip, int port)
     {
-        if (id == _settings.DeviceId || !_pairs.IsPaired(id)) return;
+        if (id == _settings.DeviceId)
+        {
+            _log("[mdns] AVISO: outro nó anuncia MEU deviceId — colisão de UUID!");
+            return;
+        }
+        if (!_pairs.IsPaired(id)) return;
         lock (_lock)
         {
             var s = EnsureSessionLocked(id);

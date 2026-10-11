@@ -3,7 +3,8 @@ using System.Text.Json;
 
 namespace LumiLink.Desktop.Storage;
 
-// deviceId UUID (migra device.id antigo) + porta aleatória persistida.
+// deviceId é UUID v4. Id legado (não-UUID) é migrado uma vez (vira UUID novo).
+// Porta aleatória persistida.
 public sealed class AppSettings
 {
     public string DeviceId { get; set; } = "";
@@ -12,30 +13,37 @@ public sealed class AppSettings
     public static AppSettings Load(string appDir)
     {
         var path = Path.Combine(appDir, "settings.json");
+        AppSettings? s = null;
         try
         {
-            if (File.Exists(path))
+            if (File.Exists(path)) s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path));
+        }
+        catch { }
+        var changed = false;
+        if (s is null)
+        {
+            string id = "";
+            try
             {
-                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path));
-                if (s is not null && s.Port > 0 && s.DeviceId.Length > 0) return s;
+                var legacy = Path.Combine(appDir, "device.id");
+                if (File.Exists(legacy)) id = File.ReadAllText(legacy).Trim();
             }
+            catch { }
+            if (!Guid.TryParse(id, out _)) id = Guid.NewGuid().ToString();
+            s = new AppSettings { DeviceId = id, Port = Random.Shared.Next(40000, 50001) };
+            changed = true;
         }
-        catch { }
-        string id = "";
-        try
+        if (!Guid.TryParse(s.DeviceId, out _)) { s.DeviceId = Guid.NewGuid().ToString(); changed = true; }
+        if (s.Port <= 0 || s.Port > 65535) { s.Port = Random.Shared.Next(40000, 50001); changed = true; }
+        if (changed)
         {
-            var legacy = Path.Combine(appDir, "device.id");
-            if (File.Exists(legacy)) id = File.ReadAllText(legacy).Trim();
+            try
+            {
+                Directory.CreateDirectory(appDir);
+                File.WriteAllText(path, JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
         }
-        catch { }
-        if (string.IsNullOrWhiteSpace(id)) id = Guid.NewGuid().ToString();
-        var s2 = new AppSettings { DeviceId = id, Port = Random.Shared.Next(40000, 50001) };
-        try
-        {
-            Directory.CreateDirectory(appDir);
-            File.WriteAllText(path, JsonSerializer.Serialize(s2, new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch { }
-        return s2;
+        return s;
     }
 }
