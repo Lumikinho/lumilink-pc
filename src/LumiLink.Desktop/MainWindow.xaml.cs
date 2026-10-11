@@ -90,6 +90,22 @@ public partial class MainWindow : Window
         Log("[ui] lista/estado atualizados.");
     }
 
+    private async void BtnPing_Click(object sender, RoutedEventArgs e)
+    {
+        var peer = Selected ?? (PeerList.ItemsSource as List<PeerRow>)?.FirstOrDefault(p => p.State == "Conectado");
+        if (peer is null)
+        {
+            System.Windows.MessageBox.Show("Selecione um par conectado.");
+            return;
+        }
+        try
+        {
+            var rtt = await _peers.PingAsync(peer.DeviceId, TimeSpan.FromSeconds(10));
+            Log($"[ping] {peer.Name}: pong em {(int)rtt.TotalMilliseconds}ms.");
+        }
+        catch (Exception ex) { Log($"[ping] {peer.Name}: sem resposta ({ex.Message})."); }
+    }
+
     private void BtnShare_Click(object sender, RoutedEventArgs e)
     {
         var peer = Selected ?? (PeerList.ItemsSource as List<PeerRow>)?.FirstOrDefault(p => p.State == "Conectado");

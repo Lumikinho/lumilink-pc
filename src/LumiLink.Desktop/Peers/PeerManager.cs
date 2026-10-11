@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.IO;
+using System.Diagnostics;
 using LumiLink.Desktop.Discovery;
 using LumiLink.Desktop.Messaging;
 using LumiLink.Desktop.Pairing;
@@ -70,6 +71,7 @@ public sealed class PeerManager : IAsyncDisposable
     private readonly MessageRouter _router;
     private readonly Action<string> _log;
     private readonly RateLimiter _limiter = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (TaskCompletionSource<TimeSpan> tcs, Stopwatch sw)> _pingWaiters = new();
     private readonly Dictionary<string, Session> _sessions = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MessageContext, Inbox> _inboxes = new();
     private readonly object _lock = new();
@@ -244,6 +246,23 @@ public sealed class PeerManager : IAsyncDisposable
             }
         }
         catch { }
+    }
+
+    // Ping manual com medida: retorna o RTT ou lança (timeout/sem conexão).
+    public async Task<TimeSpan> PingAsync(string deviceId, TimeSpan timeout)
+    {
+        Link? link;
+        lock (_lock) link = _sessions.TryGetValue(deviceId, out var s) ? s.Link : null;
+        if (link is null || !link.IsOpen()) throw new InvalidOperationException("sem conexão ativa.");
+        var ping = Message.Create("ping", new { });
+        var tcs = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pingWaiters[ping.Id] = (tcs, Stopwatch.StartNew());
+        try
+        {
+            await link.Send(ping);
+            return await tcs.Task.WaitAsync(timeout);
+        }
+        finally { _pingWaiters.TryRemove(ping.Id, out _); }
     }
 
     public async Task DropLinkAsync(string deviceId) // gancho de teste: derruba à força, nunca lança
@@ -730,6 +749,13 @@ public sealed class PeerManager : IAsyncDisposable
             lock (_lock)
                 foreach (var s in _sessions.Values)
                     if (s.Link is not null && ReferenceEquals(s.Link.Ctx, ctx)) s.Missed = 0;
+            try
+            {
+                if (msg.Payload.TryGetProperty("echo", out var e)
+                    && _pingWaiters.TryRemove(e.GetString() ?? "", out var w))
+                    w.tcs.TrySetResult(w.sw.Elapsed);
+            }
+            catch { }
             return Task.CompletedTask;
         });
         _router.Register("profile", async (ctx, msg) => await OnProfileAsync(ctx, msg, false));
