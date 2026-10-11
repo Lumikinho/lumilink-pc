@@ -55,8 +55,13 @@ public sealed class ConnectionManager
         // hello: pareamento (com token) OU reconexão (deviceId conhecido).
         _router.Register("hello", async (ctx, msg) =>
         {
-            var p = msg.Payload.Deserialize<HelloPayload>();
-            if (p is null) return;
+            var p = msg.Payload.Deserialize<HelloPayload>(Message.PayloadOptions);
+            if (p is null || string.IsNullOrWhiteSpace(p.DeviceId))
+            {
+                _log("[hello] sem deviceId — ignorado.");
+                await ctx.SendAsync(Message.Create("bye", new { reason = "bad-hello" }));
+                return;
+            }
             _log($"[hello] de {p.DeviceId} ({p.DeviceName})");
 
             if (p.Token is not null && _pairing.TryConsumeToken(p.Token))
@@ -96,7 +101,7 @@ public sealed class ConnectionManager
         // auth (resposta HMAC do celular)
         _router.Register("auth", async (ctx, msg) =>
         {
-            var p = msg.Payload.Deserialize<AuthResponsePayload>();
+            var p = msg.Payload.Deserialize<AuthResponsePayload>(Message.PayloadOptions);
             if (p is null || ctx.DeviceId is null) return;
             if (!_pendingNonce.TryGetValue(p.DeviceId, out var nonce)) return;
             var secret = _pairs.GetSecret(p.DeviceId);
@@ -143,7 +148,7 @@ public sealed class ConnectionManager
         _router.Register("profile", async (ctx, msg) =>
         {
             if (!ctx.Authenticated || ctx.DeviceId is null) return;
-            var prof = msg.Payload.Deserialize<ProfilePayload>();
+            var prof = msg.Payload.Deserialize<ProfilePayload>(Message.PayloadOptions);
             if (prof is null) return;
             var name = ImageUtils.SanitizeName(prof.Name);
             if (string.IsNullOrEmpty(name)) { _log("[profile] nome inválido, ignorado."); return; }
@@ -161,7 +166,7 @@ public sealed class ConnectionManager
         {
             // Mesmo tratamento do profile.
             if (!ctx.Authenticated || ctx.DeviceId is null) return;
-            var prof = msg.Payload.Deserialize<ProfilePayload>();
+            var prof = msg.Payload.Deserialize<ProfilePayload>(Message.PayloadOptions);
             if (prof is null) return;
             var name = ImageUtils.SanitizeName(prof.Name);
             if (string.IsNullOrEmpty(name)) return;
@@ -179,7 +184,7 @@ public sealed class ConnectionManager
             if (!ctx.Authenticated || ctx.DeviceId is null) return Task.CompletedTask;
             try
             {
-                var ph = msg.Payload.Deserialize<ProfilePhotoPayload>();
+                var ph = msg.Payload.Deserialize<ProfilePhotoPayload>(Message.PayloadOptions);
                 if (ph is null || ph.DataBase64.Length > 140_000) { _log("[profile] foto grande demais, ignorada."); return Task.CompletedTask; }
                 var bytes = Convert.FromBase64String(ph.DataBase64);
                 if (!ImageUtils.ValidateIncomingPhoto(bytes, ph.PhotoHash)) { _log("[profile] foto inválida/hash mismatch, ignorada."); return Task.CompletedTask; }

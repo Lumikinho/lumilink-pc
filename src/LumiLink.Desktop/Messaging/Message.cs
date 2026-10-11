@@ -17,7 +17,8 @@ public sealed record Message(
         return new Message(type, Guid.NewGuid().ToString("N"), el);
     }
 
-    public T PayloadAs<T>() => Payload.Deserialize<T>()!;
+    public T PayloadAs<T>() => Payload.Deserialize<T>(PayloadOptions)!;
+    public static readonly JsonSerializerOptions PayloadOptions = new() { PropertyNameCaseInsensitive = true };
     public string ToJson() => JsonSerializer.Serialize(this);
     public static Message? FromJson(string json)
     {
