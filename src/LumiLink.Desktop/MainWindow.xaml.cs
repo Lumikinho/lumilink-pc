@@ -65,7 +65,7 @@ public partial class MainWindow : Window
     private void RefreshPeers()
     {
         var rows = _peers.GetPeers().Select(p => new PeerRow(
-            p.DeviceId, p.Name, p.State,
+            p.DeviceId, p.Name, p.State, p.LastIp,
             ImageUtils.LoadPhoto(_profiles.PeerPhotoPath(p.DeviceId)))).ToList();
         PeerList.ItemsSource = rows;
         var up = rows.Count(p => p.State == "Conectado");
@@ -88,6 +88,21 @@ public partial class MainWindow : Window
     {
         RefreshPeers();
         Log("[ui] lista/estado atualizados.");
+    }
+
+    private void BtnShare_Click(object sender, RoutedEventArgs e)
+    {
+        var peer = Selected ?? (PeerList.ItemsSource as List<PeerRow>)?.FirstOrDefault(p => p.State == "Conectado");
+        if (peer is null)
+        {
+            System.Windows.MessageBox.Show("Nenhum dispositivo conectado para mostrar.");
+            return;
+        }
+        var photo = _profiles.PeerPhotoPath(peer.DeviceId);
+        WindowsShareHelper.ShareDevice(this, peer.Name, peer.State,
+            $"id: {peer.DeviceId}\nip: {(string.IsNullOrEmpty(peer.LastIp) ? "—" : peer.LastIp)}",
+            System.IO.File.Exists(photo) ? photo : null);
+        Log($"[share] painel Compartilhar aberto para {peer.Name}.");
     }
 
     private async void BtnForget_Click(object sender, RoutedEventArgs e)
@@ -138,7 +153,8 @@ public sealed class PeerRow
     public string DeviceId { get; }
     public string Name { get; }
     public string State { get; }
+    public string LastIp { get; }
     public System.Windows.Media.Imaging.BitmapImage? Photo { get; }
-    public PeerRow(string deviceId, string name, string state, System.Windows.Media.Imaging.BitmapImage? photo)
-    { DeviceId = deviceId; Name = name; State = state; Photo = photo; }
+    public PeerRow(string deviceId, string name, string state, string lastIp, System.Windows.Media.Imaging.BitmapImage? photo)
+    { DeviceId = deviceId; Name = name; State = state; LastIp = lastIp; Photo = photo; }
 }

@@ -10,7 +10,8 @@
     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
       <Button Content="Parear novo dispositivo" Click="BtnPair_Click" Margin="0,0,8,0"/>
       <Button Content="Conectar manualmente" Click="BtnManual_Click" Margin="0,0,8,0"/>
-      <Button Content="Atualizar" Click="BtnRefresh_Click"/>
+      <Button Content="Atualizar" Click="BtnRefresh_Click" Margin="0,0,8,0"/>
+      <Button Content="Compartilhar" Click="BtnShare_Click"/>
     </StackPanel>
     <TextBlock Text="Pareados:" FontWeight="Bold" Margin="0,8,0,4"/>
     <ListBox x:Name="PeerList" Height="170" MouseDoubleClick="PeerList_DoubleClick">
