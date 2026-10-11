@@ -29,8 +29,8 @@ public partial class PeerDetailWindow : Window
         AddrLabel.Text = $"Último IP: {(string.IsNullOrEmpty(p.LastIp) ? "(descoberta pendente)" : p.LastIp)}";
         SeenLabel.Text = $"Última conexão: {(p.LastSeen == default ? "nunca" : p.LastSeen.ToLocalTime().ToString("g"))}";
         var photo = _profiles.PeerPhotoPath(_id);
-        if (File.Exists(photo))
-            try { PhotoView.Source = new BitmapImage(new Uri(photo)); } catch { }
+        var img = Profile.ImageUtils.LoadPhoto(photo);
+        if (img is not null) PhotoView.Source = img;
     }
 
     private async void BtnReconnect_Click(object sender, RoutedEventArgs e)

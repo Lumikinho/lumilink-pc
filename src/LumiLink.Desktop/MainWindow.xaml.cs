@@ -60,13 +60,15 @@ public partial class MainWindow : Window
         _instance?.Dispatcher.Invoke(() => { _instance.LogBox.Text += line + "\n"; });
     }
 
-    private PeerView? Selected => PeerList.SelectedItem as PeerView;
+    private PeerRow? Selected => PeerList.SelectedItem as PeerRow;
 
     private void RefreshPeers()
     {
-        var peers = _peers.GetPeers();
-        PeerList.ItemsSource = peers;
-        var up = peers.Count(p => p.State == "Conectado");
+        var rows = _peers.GetPeers().Select(p => new PeerRow(
+            p.DeviceId, p.Name, p.State,
+            ImageUtils.LoadPhoto(_profiles.PeerPhotoPath(p.DeviceId)))).ToList();
+        PeerList.ItemsSource = rows;
+        var up = rows.Count(p => p.State == "Conectado");
         StateLabel.Text = up == 0 ? "Desconectado" : $"Conectado a {up} dispositivo(s)";
         SelfInfo.Text = $"id={App.Settings.DeviceId[..8]}… porta={App.Settings.Port}";
         _tray?.SetTooltip(StateLabel.Text);
@@ -129,4 +131,14 @@ public partial class MainWindow : Window
     }
 
     private void RestoreWindow() => Dispatcher.Invoke(() => { base.Show(); WindowState = WindowState.Normal; });
+}
+
+public sealed class PeerRow
+{
+    public string DeviceId { get; }
+    public string Name { get; }
+    public string State { get; }
+    public System.Windows.Media.Imaging.BitmapImage? Photo { get; }
+    public PeerRow(string deviceId, string name, string state, System.Windows.Media.Imaging.BitmapImage? photo)
+    { DeviceId = deviceId; Name = name; State = state; Photo = photo; }
 }

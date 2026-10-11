@@ -63,6 +63,24 @@ public static class ImageUtils
         return t.Length > 32 ? t[..32] : t;
     }
 
+    // Carrega para WPF sem travar o arquivo (OnLoad + Freeze). Null se falhar.
+    public static System.Windows.Media.Imaging.BitmapImage? LoadPhoto(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            using var fs = File.OpenRead(path);
+            var bmp = new System.Windows.Media.Imaging.BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.StreamSource = fs;
+            bmp.EndInit();
+            bmp.Freeze();
+            return bmp;
+        }
+        catch { return null; }
+    }
+
     // Padrão PC: foto da conta Windows ou avatar com iniciais.
     public static void EnsureDefaultPhoto(string dstPath, string displayName)
     {

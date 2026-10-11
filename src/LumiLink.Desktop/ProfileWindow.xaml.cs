@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using LumiLink.Desktop.Profile;
 using Microsoft.Win32;
 
@@ -12,6 +11,7 @@ public partial class ProfileWindow : Window
     private readonly Func<Task> _onSaved;
     private readonly Action<string> _log;
     private string _pendingPhoto;
+    private bool _resetToDefault;
 
     public ProfileWindow(ProfileStore store, Func<Task> onSaved, Action<string> log)
     {
@@ -19,14 +19,15 @@ public partial class ProfileWindow : Window
         _store = store; _onSaved = onSaved; _log = log;
         _pendingPhoto = store.OwnPhotoPath();
         NameBox.Text = store.Current.Name;
+        NameBox.TextChanged += (_, _) => RefreshPreview();
         RefreshPreview();
     }
 
     private void RefreshPreview()
     {
         PreviewName.Text = string.IsNullOrWhiteSpace(NameBox.Text) ? _store.Current.Name : NameBox.Text.Trim();
-        var path = _pendingPhoto;
-        if (File.Exists(path)) PhotoView.Source = PreviewPhoto.Source = new BitmapImage(new Uri(path));
+        var img = ImageUtils.LoadPhoto(_pendingPhoto);
+        if (img is not null) PhotoView.Source = PreviewPhoto.Source = img;
     }
 
     private void BtnChange_Click(object sender, RoutedEventArgs e)
@@ -38,36 +39,43 @@ public partial class ProfileWindow : Window
             if (ImageUtils.TryPrepareAvatar(dlg.FileName, tmp, out _))
             {
                 _pendingPhoto = tmp;
-                NameBox_TextChanged();
+                _resetToDefault = false;
                 RefreshPreview();
             }
             else _log("[profile] imagem inválida.");
         }
     }
 
-    private void NameBox_TextChanged() => RefreshPreview();
-
     private void BtnReset_Click(object sender, RoutedEventArgs e)
     {
         NameBox.Text = Environment.MachineName;
-        ImageUtils.GenerateInitialsAvatar(_pendingPhoto = Path.Combine(Path.GetTempPath(), "lumilink_avatar.png"), NameBox.Text);
+        _pendingPhoto = Path.Combine(Path.GetTempPath(), "lumilink_avatar.png");
+        ImageUtils.GenerateInitialsAvatar(_pendingPhoto, NameBox.Text);
+        _resetToDefault = true;
         RefreshPreview();
     }
 
     private async void BtnSave_Click(object sender, RoutedEventArgs e)
     {
-        var name = ImageUtils.SanitizeName(NameBox.Text);
-        if (string.IsNullOrEmpty(name)) { System.Windows.MessageBox.Show("Nome não pode ser vazio."); return; }
-        var dst = _store.OwnPhotoPath();
-        bool customPhoto = _pendingPhoto != dst;
-        if (customPhoto) File.Copy(_pendingPhoto, dst, true);
-        var hash = ProfileStore.HashOf(dst);
-        // isCustom: nome difere do padrão? foto foi trocada?
-        var profile = new DeviceProfile(_store.Current.DeviceId, name, hash,
-            name != Environment.MachineName, customPhoto || _store.Current.PhotoCustom);
-        _store.SaveOwn(profile);
-        _log($"[profile] salvo: {name} ({hash[..Math.Min(8, hash.Length)]}…). Enviando profile_update…");
-        await _onSaved();
-        Close();
+        try
+        {
+            var name = ImageUtils.SanitizeName(NameBox.Text);
+            if (string.IsNullOrEmpty(name)) { System.Windows.MessageBox.Show("Nome não pode ser vazio."); return; }
+            var dst = _store.OwnPhotoPath();
+            bool customPhoto = _resetToDefault ? false : (_pendingPhoto != dst || _store.Current.PhotoCustom);
+            if (_pendingPhoto != dst) File.Copy(_pendingPhoto, dst, true);
+            var hash = ProfileStore.HashOf(dst);
+            var profile = new DeviceProfile(_store.Current.DeviceId, name, hash,
+                name != Environment.MachineName, customPhoto);
+            _store.SaveOwn(profile);
+            _log($"[profile] salvo: {name} ({hash[..Math.Min(8, hash.Length)]}…). Enviando profile_update…");
+            await _onSaved();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            _log($"[profile] salvar falhou: {ex.Message}");
+            System.Windows.MessageBox.Show($"Não salvou: {ex.Message}");
+        }
     }
 }
