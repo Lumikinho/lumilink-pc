@@ -50,19 +50,29 @@ public partial class MainWindow : Window
         _tray = new TrayIconManager("LumiLink", RestoreWindow, () => Close());
         Loaded += async (_, _) =>
         {
-            RefreshPairs();
-            ChkAutostart.IsChecked = IsAutostart();
-            _server.EnsureFirewallRule(App.Port);
-            _ = new MdnsAdvertiser(App.Port, App.DeviceId, Log).StartAsync(CancellationToken.None);
-            await _server.StartAsync(CancellationToken.None); // async, não bloqueia UI (Kestrel em background)
+            try
+            {
+                Log("[app] iniciando...");
+                RefreshPairs();
+                ChkAutostart.IsChecked = IsAutostart();
+                _server.EnsureFirewallRule(App.Port);
+                _ = new MdnsAdvertiser(App.Port, App.DeviceId, Log).StartAsync(CancellationToken.None);
+                await _server.StartAsync(CancellationToken.None); // async, não bloqueia UI (Kestrel em background)
+            }
+            catch (Exception ex)
+            {
+                Log($"[FATAL startup] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            }
         };
         Closing += OnClosing;
     }
 
-    public static void Log(string s) => _instance?.Dispatcher.Invoke(() =>
+    public static void Log(string s)
     {
-        _instance.LogBox.Text += $"[{DateTime.Now:HH:mm:ss}] {s}\n";
-    });
+        var line = $"[{DateTime.Now:HH:mm:ss}] {s}";
+        try { File.AppendAllText(Path.Combine(App.AppDir, "log.txt"), line + "\n"); } catch { }
+        _instance?.Dispatcher.Invoke(() => { _instance.LogBox.Text += line + "\n"; });
+    }
 
     private void BtnPair_Click(object sender, RoutedEventArgs e)
     {
