@@ -22,6 +22,7 @@ public partial class PairWindow : Window
         QrImage.Source = bmp;
         CodeLabel.Text = $"Código: {code[..3]} {code[3..]}";
         AddrLabel.Text = $"{ip}:{port}";
+        AllIpsLabel.Text = string.Join("\n", PairingManager.OrderedIps().Select(a => $"{a}:{port}"));
     }
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
