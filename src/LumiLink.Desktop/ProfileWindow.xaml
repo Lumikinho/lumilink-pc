@@ -1,0 +1,20 @@
+<Window x:Class="LumiLink.Desktop.ProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Meu perfil" Height="420" Width="360">
+  <StackPanel Margin="16">
+    <TextBlock Text="Como o celular vai ver:" FontWeight="Bold"/>
+    <StackPanel Orientation="Horizontal" Margin="0,8">
+      <Image x:Name="PreviewPhoto" Width="64" Height="64"/>
+      <TextBlock x:Name="PreviewName" FontSize="16" VerticalAlignment="Center" Margin="8,0,0,0"/>
+    </StackPanel>
+    <TextBlock Text="Nome (máx 32):"/>
+    <TextBox x:Name="NameBox" MaxLength="32" Margin="0,4,0,8"/>
+    <Image x:Name="PhotoView" Width="128" Height="128"/>
+    <StackPanel Orientation="Horizontal" Margin="0,8">
+      <Button Content="Alterar foto" Click="BtnChange_Click" Margin="0,0,8,0"/>
+      <Button Content="Restaurar padrão" Click="BtnReset_Click"/>
+    </StackPanel>
+    <Button Content="Salvar" Click="BtnSave_Click" Margin="0,8,0,0"/>
+  </StackPanel>
+</Window>
