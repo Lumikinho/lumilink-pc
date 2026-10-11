@@ -30,30 +30,40 @@ public static class WindowsShareHelper
     private static string? _photoPath;
     private static bool _hooked;
     private static readonly object _lock = new();
+    private static DataTransferManager? _dtm; // segurar ref: sem isso o GC mata e o DataRequested nunca dispara
+    private static IDataTransferManagerInterop? _interop;
 
     public static void ShareDevice(Window owner, string name, string state, string details, string? photoPath)
     {
-        lock (_lock)
+        try
         {
-            _title = $"LumiLink — {name}";
-            _description = $"Dispositivo {state}";
-            _text = $"{name} ({state})\n{details}";
-            _photoPath = photoPath;
-        }
-
-        IntPtr hwnd = new WindowInteropHelper(owner).Handle;
-        IDataTransferManagerInterop interop = DataTransferManager.As<IDataTransferManagerInterop>();
-        var iid = DtmIid;
-        var dtm = WinRT.MarshalInterface<DataTransferManager>.FromAbi(interop.GetForWindow(hwnd, ref iid));
-        lock (_lock)
-        {
-            if (!_hooked)
+            lock (_lock)
             {
-                dtm.DataRequested += OnDataRequested;
-                _hooked = true;
+                _title = $"LumiLink — {name}";
+                _description = $"Dispositivo {state}";
+                _text = $"{name} ({state})\n{details}";
+                _photoPath = photoPath;
             }
+
+            IntPtr hwnd = new WindowInteropHelper(owner).Handle;
+            _interop = DataTransferManager.As<IDataTransferManagerInterop>();
+            var iid = DtmIid;
+            _dtm = WinRT.MarshalInterface<DataTransferManager>.FromAbi(_interop.GetForWindow(hwnd, ref iid));
+            lock (_lock)
+            {
+                if (!_hooked)
+                {
+                    _dtm.DataRequested += OnDataRequested;
+                    _hooked = true;
+                }
+            }
+            _interop.ShowShareUIForWindow(hwnd);
         }
-        interop.ShowShareUIForWindow(hwnd);
+        catch (Exception ex)
+        {
+            Desktop.MainWindow.Log($"[share] abrir falhou: {ex.Message}");
+            System.Windows.MessageBox.Show($"Compartilhar falhou: {ex.Message}");
+        }
     }
 
     private static async void OnDataRequested(DataTransferManager sender, DataRequestedEventArgs args)
@@ -77,6 +87,11 @@ public static class WindowsShareHelper
                 }
                 catch { /* sem foto: segue só texto */ }
             }
+            Desktop.MainWindow.Log($"[share] dados oferecidos: {title}");
+        }
+        catch (Exception ex)
+        {
+            Desktop.MainWindow.Log($"[share] dados falharam: {ex.Message}");
         }
         finally
         {
