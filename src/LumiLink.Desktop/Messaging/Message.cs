@@ -28,7 +28,7 @@ public sealed record Message(
 }
 
 // Payloads tipados (evita magic strings espalhadas)
-public sealed record HelloPayload(string? Token, string? Code, string DeviceId, string DeviceName, ProfilePayload? Profile, string? Fingerprint, int Port);
+public sealed record HelloPayload(string? Token, string? Code, string DeviceId, string DeviceName, ProfilePayload? Profile, string? Fingerprint, int Port, List<string>? Ips);
 public sealed record ProfilePayload(string Name, string PhotoHash);
 public sealed record AuthChallengePayload(string Nonce);
 public sealed record AuthResponsePayload(string DeviceId, string Hmac, string? Nonce);

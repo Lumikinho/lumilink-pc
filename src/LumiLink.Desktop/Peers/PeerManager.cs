@@ -99,6 +99,10 @@ public sealed class PeerManager : IAsyncDisposable
     public static string NormIp(string ip)
         => ip.StartsWith("::ffff:", StringComparison.OrdinalIgnoreCase) ? ip["::ffff:".Length..] : ip;
 
+    public static string JoinIps(List<string>? ips)
+        => string.Join(",", (ips ?? new List<string>()).Select(x => (x ?? "").Trim())
+            .Where(x => x.Length > 0 && x.Length < 64).Take(8));
+
     // ---- API pública ----
     public async Task StartAsync(CancellationToken ct)
     {
@@ -155,7 +159,7 @@ public sealed class PeerManager : IAsyncDisposable
             {
                 token = credential, code = credential, deviceId = _settings.DeviceId,
                 deviceName = me.Name, profile = new { name = me.Name, photoHash = me.PhotoHash },
-                fingerprint = OwnFingerprint, port = _settings.Port
+                fingerprint = OwnFingerprint, port = _settings.Port, ips = PairingManager.OrderedIps()
             }));
             var ok = await inbox.WaitAsync("auth_ok", TimeSpan.FromSeconds(20));
             var p = ok.Payload.Deserialize<AuthOkPayload>(Message.PayloadOptions);
@@ -324,6 +328,9 @@ public sealed class PeerManager : IAsyncDisposable
                 if (rec is not null && !string.IsNullOrEmpty(rec.LastIp) && rec.LastPort != 0
                     && !targets.Any(t => t.ip == rec.LastIp && t.port == rec.LastPort))
                     targets.Add((rec.LastIp, rec.LastPort));
+                if (rec is not null && rec.LastPort != 0) // IPs anunciados pelo par (Tailscale, PAN…)
+                    foreach (var k in (rec.KnownIps ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(6))
+                        if (!targets.Any(t => t.ip == k)) targets.Add((k, rec.LastPort));
             }
             bool iAmSmaller = string.CompareOrdinal(_settings.DeviceId, s.Id) < 0;
             if (!iAmSmaller)
@@ -394,7 +401,7 @@ public sealed class PeerManager : IAsyncDisposable
             {
                 deviceId = _settings.DeviceId, deviceName = me.Name,
                 profile = new { name = me.Name, photoHash = me.PhotoHash },
-                fingerprint = OwnFingerprint, port = _settings.Port
+                fingerprint = OwnFingerprint, port = _settings.Port, ips = PairingManager.OrderedIps()
             }));
             var ch = await inbox.WaitAsync("auth", TimeSpan.FromSeconds(20), lct);
             var nonce = ch.Payload.Deserialize<AuthChallengePayload>(Message.PayloadOptions)?.Nonce
@@ -444,6 +451,7 @@ public sealed class PeerManager : IAsyncDisposable
             ctx.DeviceId = s.Id; ctx.Authenticated = true;
         }
         _pairs.Touch(s.Id, ip, port);
+        _log($"[conn] {s.Id} via {ip}:{port}.");
         _ = SendOwnProfileAsync(ctx);
         StartPingLoop(s, s.Link!);
         Changed?.Invoke();
@@ -478,7 +486,7 @@ public sealed class PeerManager : IAsyncDisposable
                 var name = Profile.ImageUtils.SanitizeName(p.Profile?.Name);
                 if (string.IsNullOrEmpty(name)) name = Profile.ImageUtils.SanitizeName(p.DeviceName);
                 if (string.IsNullOrEmpty(name)) name = id;
-                _pairs.SavePeer(id, name, secret, p.Fingerprint ?? "", ip, p.Port, p.Profile?.PhotoHash ?? "empty");
+                _pairs.SavePeer(id, name, secret, p.Fingerprint ?? "", ip, p.Port, p.Profile?.PhotoHash ?? "empty", JoinIps(p.Ips));
                 if (p.Profile is not null)
                     _profiles.SavePeer(new DeviceProfile(id, name, p.Profile.PhotoHash, true, true));
                 var s = EnsureSessionBusy(id);
@@ -579,7 +587,7 @@ public sealed class PeerManager : IAsyncDisposable
             await ctx.SendAsync(Message.Create("auth_ok", new { hmac = ComputeHmac(secret2, resp.Nonce) }));
             _limiter.Success(ip);
             AttachIncoming(session, ctx, inbox);
-            _pairs.Touch(id, ip, p.Port);
+            _pairs.Touch(id, ip, p.Port, JoinIps(p.Ips));
             _log($"[auth] {id} autenticado (mútuo ok).");
             Changed?.Invoke();
         }

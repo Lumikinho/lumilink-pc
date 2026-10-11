@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using LumiLink.Desktop.Pairing;
 using QRCoder;
 
 namespace LumiLink.Desktop;
@@ -11,7 +12,7 @@ public partial class PairWindow : Window
     public PairWindow(string token, string code, string ip, int port, string fingerprint, string deviceId)
     {
         InitializeComponent();
-        var qr = JsonSerializer.Serialize(new { ip, port, token, fingerprint, deviceId });
+        var qr = JsonSerializer.Serialize(new { ip, port, token, fingerprint, deviceId, ips = PairingManager.OrderedIps() });
         using var gen = new QRCodeGenerator();
         var data = gen.CreateQrCode(qr, QRCodeGenerator.ECCLevel.M);
         using var png = new PngByteQRCode(data);
