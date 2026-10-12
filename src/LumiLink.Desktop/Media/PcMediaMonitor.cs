@@ -82,10 +82,12 @@ public sealed class PcMediaMonitor : IDisposable
             var artist = props?.Artist ?? "";
             var app = FriendlyApp(s.SourceAppUserModelId);
             var playing = info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var paused = info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused;
+            var state = playing ? "playing" : (paused ? "paused" : "stopped");
             long dur = 0, pos = 0;
             try { dur = (long)(timeline?.EndTime.TotalMilliseconds ?? 0); } catch { }
             try { pos = (long)(timeline?.Position.TotalMilliseconds ?? 0); } catch { }
-            var key = $"{title}|{artist}|{playing}|{dur}";
+            var key = $"{title}|{artist}|{state}|{dur}";
             string artB64 = "";
             var artBytes = await ReadArtAsync(props, 300);
             if (artBytes is not null)
@@ -99,7 +101,7 @@ public sealed class PcMediaMonitor : IDisposable
             _lastPosSent = pos;
             await _peers.BroadcastAsync(Messaging.Message.Create("media_pc", new
             {
-                title, artist, app, art = artB64, dur, pos, playing,
+                title, artist, app, art = artB64, dur, pos, playing, state,
                 ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             }));
         }
