@@ -77,21 +77,46 @@ public sealed class FileTransfer : IAsyncDisposable
             }
             catch (OperationCanceledException) { throw new TimeoutException("ninguém aceitou."); }
             if (who.Count == 0) throw new TimeoutException("ninguém aceitou.");
-            using var fs = File.OpenRead(path);
-            var buf = new byte[Chunk];
-            int seq = 0, n;
-            while ((n = await fs.ReadAsync(buf, 0, buf.Length)) > 0)
+            // Fixa UM link p/ o stream inteiro (trocar no meio embaralha/perde chunks).
+            var link = _peers.TryGetLink(deviceId);
+            if (link is null) throw new IOException("link caiu antes do stream.");
+            try
             {
-                var b64 = Convert.ToBase64String(buf, 0, n);
-                foreach (var id in who)
-                    await _peers.SendToAsync(id, Message.Create("clip_file_chunk",
-                        new { fileId, seq, data = b64 }));
-                seq++;
+                using var fs = File.OpenRead(path);
+                var buf = new byte[Chunk];
+                int seq = 0, n;
+                while ((n = await fs.ReadAsync(buf, 0, buf.Length)) > 0)
+                {
+                    var b64 = Convert.ToBase64String(buf, 0, n);
+                    try
+                    {
+                        await link.Send(Message.Create("clip_file_chunk",
+                            new { fileId, seq, data = b64 }));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new IOException($"link caiu no chunk {seq}: {ex.Message}");
+                    }
+                    seq++;
+                }
+                try
+                {
+                    await link.Send(Message.Create("clip_file_done",
+                        new { fileId, sha256 = hex }));
+                }
+                catch { /* done perdido: receptor expira sozinho */ }
+                _log($"[file] {info.Name} enviado ({seq} chunks).");
             }
-            foreach (var id in who)
-                await _peers.SendToAsync(id, Message.Create("clip_file_done",
-                    new { fileId, sha256 = hex }));
-            _log($"[file] {info.Name} enviado ({seq} chunks).");
+            catch (Exception ex)
+            {
+                try
+                {
+                    await _peers.SendToAsync(deviceId, Message.Create("clip_file_abort",
+                        new { fileId, reason = ex.Message }));
+                }
+                catch { }
+                throw;
+            }
         }
         finally { _acceptWaits.TryRemove(fileId, out _); _accepts.TryRemove(fileId, out _); }
     }
@@ -163,9 +188,11 @@ public sealed class FileTransfer : IAsyncDisposable
                 if (!_incoming.TryRemove(fileId, out var sess)) return Task.CompletedTask;
                 try
                 {
-                    if (!sess.VerifyAndClose(out _))
+                    if (!sess.VerifyAndClose(out var actual))
                     {
-                        _log("[file] corrompido (hash).");
+                        long got = 0;
+                        try { got = new FileInfo(sess.PartPath).Length; } catch { }
+                        _log($"[file] corrompido: {got}/{sess.Size} bytes, hash {actual[..Math.Min(8, actual.Length)]}… vs {sess.Sha256[..Math.Min(8, sess.Sha256.Length)]}…");
                         sess.Dispose();
                         return Task.CompletedTask;
                     }
@@ -178,6 +205,21 @@ public sealed class FileTransfer : IAsyncDisposable
                 finally { try { sess.Dispose(); } catch { } }
             }
             catch (Exception ex) { _log($"[file] done ignorado: {ex.Message}"); }
+            return Task.CompletedTask;
+        });
+
+        _router.Register("clip_file_abort", (ctx, msg) =>
+        {
+            try
+            {
+                var fileId = msg.Payload.TryGetProperty("fileId", out var f) ? f.GetString() ?? "" : "";
+                if (_incoming.TryRemove(fileId, out var sess))
+                {
+                    sess.Dispose();
+                    _log($"[file] envio abortado pelo remetente ({fileId}).");
+                }
+            }
+            catch { }
             return Task.CompletedTask;
         });
     }

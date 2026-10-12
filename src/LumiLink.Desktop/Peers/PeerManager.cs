@@ -20,7 +20,7 @@ public sealed record PeerView(string DeviceId, string Name, string State, DateTi
 // Uma conexão por par. Só o menor deviceId disca; o maior espera 10 s (PROTOCOL.md §3).
 public sealed class PeerManager : IAsyncDisposable
 {
-    private sealed class Inbox
+    public sealed class Inbox
     {
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, TaskCompletionSource<Message>> _w = new();
         public async Task<Message> WaitAsync(string type, TimeSpan t, CancellationToken ct = default)
@@ -35,7 +35,7 @@ public sealed class PeerManager : IAsyncDisposable
         { foreach (var kv in _w) kv.Value.TrySetException(ex); _w.Clear(); }
     }
 
-    private sealed class Link
+    public sealed class Link
     {
         public required bool Outgoing;
         public required Func<Message, Task> Send;
@@ -275,6 +275,16 @@ public sealed class PeerManager : IAsyncDisposable
         if (link is null || !link.IsOpen()) return false;
         try { await link.Send(msg); return true; }
         catch { return false; }
+    }
+
+    // Link atual para stream fixo (chunks sempre no mesmo socket).
+    public Link? TryGetLink(string deviceId)
+    {
+        lock (_lock)
+        {
+            var link = _sessions.TryGetValue(deviceId, out var s) ? s.Link : null;
+            return link is not null && link.IsOpen() ? link : null;
+        }
     }
 
     // Ping manual com medida: retorna o RTT ou lança (timeout/sem conexão).
