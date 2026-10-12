@@ -42,9 +42,11 @@ public sealed class ClipTests : IDisposable
         var data = new byte[] { 1, 2, 3, 4, 5 };
         using var s = new LumiLink.Desktop.Transfer.FileAssembler(
             dir, "f1", "a.bin", 5, LumiLink.Desktop.Transfer.FileAssembler.ShaHex(data));
-        Assert.False(s.Feed(1, new byte[] { 9 }));
-        Assert.True(s.Feed(0, new byte[] { 1, 2, 3 }));
-        Assert.True(s.Feed(1, new byte[] { 4, 5 }));
+        Assert.True(s.Feed(1, new byte[] { 4, 5 })); // futuro: bufferiza
+        Assert.Equal(0, s.ExpectedSeq);
+        Assert.True(s.Feed(0, new byte[] { 1, 2, 3 })); // drena 0 e 1
+        Assert.Equal(2, s.ExpectedSeq);
+        Assert.False(s.Feed(0, new byte[] { 9 })); // duplicado/atrasado
         Assert.True(s.VerifyAndClose(out var hex));
         Assert.Equal(LumiLink.Desktop.Transfer.FileAssembler.ShaHex(data), hex);
     }

@@ -3,9 +3,11 @@ using System.Security.Cryptography;
 
 namespace LumiLink.Desktop.Transfer;
 
-// Montagem de arquivo recebido por chunks (ordem estrita). Testável.
+// Montagem tolerante a reordenação: guarda futuros até 256 e drena em ordem.
 public sealed class FileAssembler : IDisposable
 {
+    private const int MaxBuffered = 256;
+
     public string FileId { get; }
     public string Name { get; }
     public long Size { get; }
@@ -14,6 +16,7 @@ public sealed class FileAssembler : IDisposable
     public DateTime LastActivity { get; private set; } = DateTime.UtcNow;
 
     private readonly FileStream _out;
+    private readonly SortedDictionary<int, byte[]> _pending = new();
     private bool _disposed;
 
     public FileAssembler(string dir, string fileId, string name, long size, string sha256)
@@ -26,15 +29,34 @@ public sealed class FileAssembler : IDisposable
         _out = File.Create(Path.Combine(dir, fileId + ".part"));
     }
 
-    public string PartPath => _out.Name;
+    public string PartPath => ((FileStream)_out).Name;
+    public int Buffered => _pending.Count;
 
+    // false = duplicado/atrasado demais (descarta) ou buffer cheio.
     public bool Feed(int seq, byte[] data)
     {
-        if (seq != ExpectedSeq) return false;
+        if (seq < ExpectedSeq) return false;
+        if (seq == ExpectedSeq)
+        {
+            Write(data);
+            while (_pending.TryGetValue(ExpectedSeq, out var next))
+            {
+                _pending.Remove(ExpectedSeq);
+                Write(next);
+            }
+            return true;
+        }
+        if (_pending.Count >= MaxBuffered || _pending.ContainsKey(seq)) return false;
+        _pending[seq] = data;
+        LastActivity = DateTime.UtcNow;
+        return true;
+    }
+
+    private void Write(byte[] data)
+    {
         _out.Write(data, 0, data.Length);
         ExpectedSeq++;
         LastActivity = DateTime.UtcNow;
-        return true;
     }
 
     public bool IdleFor(TimeSpan t) => DateTime.UtcNow - LastActivity > t;

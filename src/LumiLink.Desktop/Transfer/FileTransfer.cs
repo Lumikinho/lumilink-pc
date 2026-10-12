@@ -24,6 +24,7 @@ public sealed class FileTransfer : IAsyncDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<HashSet<string>>> _acceptWaits = new();
     private readonly ConcurrentDictionary<string, HashSet<string>> _accepts = new();
     private readonly ConcurrentDictionary<string, FileAssembler> _incoming = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _sending = new();
     private readonly CancellationTokenSource _cts = new();
 
     public FileTransfer(MessageRouter router, PeerManager peers, ClipStore store, string selfId,
@@ -40,6 +41,18 @@ public sealed class FileTransfer : IAsyncDisposable
         var info = new FileInfo(path);
         if (!info.Exists) throw new FileNotFoundException("arquivo não existe.", path);
         if (info.Length > MaxFile) throw new InvalidOperationException("arquivo > 200 MB.");
+        var gate = _sending.GetOrAdd(deviceId, _ => new SemaphoreSlim(1, 1));
+        if (!await gate.WaitAsync(0)) throw new InvalidOperationException("já enviando para este par.");
+        try
+        {
+            await SendFileInnerAsync(deviceId, info);
+        }
+        finally { gate.Release(); }
+    }
+
+    private async Task SendFileInnerAsync(string deviceId, FileInfo info)
+    {
+        var path = info.FullName;
         var fileId = Guid.NewGuid().ToString("N")[..16];
         string hex;
         using (var fs = File.OpenRead(path))
@@ -96,6 +109,11 @@ public sealed class FileTransfer : IAsyncDisposable
                 var size = p.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
                 var sha = p.TryGetProperty("sha256", out var h) ? h.GetString() ?? "" : "";
                 if (string.IsNullOrEmpty(fileId) || size <= 0 || size > MaxFile) return;
+                if (_incoming.TryGetValue(fileId, out var cur))
+                {
+                    if (cur.Size == size && cur.Sha256 == sha) return; // oferta repetida: mantém
+                    if (_incoming.TryRemove(fileId, out var old)) old.Dispose();
+                }
                 _incoming[fileId] = new FileAssembler(_store.ClipDir, fileId, name, size, sha);
                 await ctx.SendAsync(Message.Create("clip_file_accept", new { fileId, accept = true }));
                 _log($"[file] oferta aceita: {name}.");
@@ -130,7 +148,7 @@ public sealed class FileTransfer : IAsyncDisposable
                 var data = p.TryGetProperty("data", out var d) ? d.GetString() ?? "" : "";
                 if (!_incoming.TryGetValue(fileId, out var sess)) return Task.CompletedTask;
                 if (!sess.Feed(seq, Convert.FromBase64String(data)))
-                    _log($"[file] chunk fora de ordem ({fileId}:{seq}).");
+                    _log($"[file] chunk {seq} recusado (esperava {sess.ExpectedSeq}, buffer {sess.Buffered}).");
             }
             catch (Exception ex) { _log($"[file] chunk ignorado: {ex.Message}"); }
             return Task.CompletedTask;
