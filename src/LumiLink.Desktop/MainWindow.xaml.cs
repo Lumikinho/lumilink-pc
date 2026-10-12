@@ -186,7 +186,21 @@ public partial class MainWindow : Window
                 System.Windows.MessageBox.Show("Sem USB e sem IP conhecido. Conecte o USB uma vez ou pareie de novo.");
                 return;
             }
-            await ScreenMirror.MirrorWifiAsync(adb, scrcpy, ip, $"LumiLink — {peer?.Name ?? "Android"}", Log);
+            var hint = ip;
+            var title = $"LumiLink — {peer?.Name ?? "Android"}";
+            try
+            {
+                // 1) direto (já pareado no adb antes): sem diálogo.
+                await ScreenMirror.MirrorWifiAsync(adb, scrcpy, ip, title, Log);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log($"[mirror] direto falhou ({ex.Message}); pedindo código.");
+            }
+            // 2) pareamento sem fio com código.
+            new WifiPairWindow(hint, async (wip, wport, wcode) =>
+                await ScreenMirror.MirrorWifiPairAsync(adb, scrcpy, wip, wport, wcode, title, Log)).ShowDialog();
         }
         catch (Exception ex)
         {

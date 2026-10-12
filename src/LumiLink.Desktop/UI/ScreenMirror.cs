@@ -80,6 +80,46 @@ public static class ScreenMirror
         { UseShellExecute = false, CreateNoWindow = true });
     }
 
+    // Pareamento adb sem fio: envia o código via stdin (não-interativo).
+    public static void PairWifi(string adb, string ip, string pairPort, string code)
+    {
+        var psi = new ProcessStartInfo($"\"{adb}\"", $"pair {ip}:{pairPort}")
+        {
+            UseShellExecute = false, RedirectStandardInput = true,
+            RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
+        };
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException("adb não iniciou.");
+        p.StandardInput.WriteLine(code);
+        p.StandardInput.Close();
+        var output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+        if (!p.WaitForExit(20000)) { try { p.Kill(); } catch { } throw new TimeoutException("adb pair demorou."); }
+        if (!output.Contains("Successfully paired", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("pareamento adb falhou: " + output.Trim());
+    }
+
+    // Wi-Fi direto: pareia, acha o endpoint e espelha. Sem USB.
+    public static async Task MirrorWifiPairAsync(string adb, string scrcpy, string ip,
+        string pairPort, string code, string title, Action<string> log)
+    {
+        await Task.Run(() => PairWifi(adb, ip, pairPort, code));
+        log("[mirror] pareado no adb. Procurando endpoint…");
+        await Task.Delay(2000);
+        for (var i = 0; i < 6; i++)
+        {
+            var target = AdbDevices(adb).FirstOrDefault(d => d.StartsWith(ip + ":"));
+            if (target is not null)
+            {
+                Process.Start(new ProcessStartInfo(scrcpy,
+                    $"-s {target} --window-title \"{title}\" --stay-awake")
+                { UseShellExecute = false, CreateNoWindow = true });
+                log($"[mirror] espelhando via Wi-Fi ({target}).");
+                return;
+            }
+            await Task.Delay(2000);
+        }
+        throw new InvalidOperationException("pareou mas o endpoint não apareceu.");
+    }
+
     // Wi-Fi: tenta conectar direto; se não der e houver USB, ativa tcpip e conecta.
     public static async Task MirrorWifiAsync(string adb, string scrcpy, string ip, string title, Action<string> log)
     {
