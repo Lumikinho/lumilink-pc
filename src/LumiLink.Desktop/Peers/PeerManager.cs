@@ -181,10 +181,11 @@ public sealed class PeerManager : IAsyncDisposable
             session = EnsureSessionBusy(peerId);
             try
             {
-                Link? old;
-                lock (_lock) old = session.Link;
-                if (old is not null) DetachLink(old); // troca: segredo novo vale
-                AttachOutgoing(session, ctx, inbox, client, ip, port);
+                await AttachOutgoing(session, ctx, inbox, client, ip, port);
+                lock (_lock)
+                {
+                    if (session.Link is null) throw new IOException("link perdido na resolução.");
+                }
             }
             finally { lock (_lock) session.Busy = false; }
             _log($"[pair] PAREADO com {peerId}.");
@@ -480,27 +481,53 @@ public sealed class PeerManager : IAsyncDisposable
         finally { lock (_lock) { if (s.DialCts == myCts) s.DialCts = null; } myCts.Dispose(); linked.Dispose(); }
     }
 
-    private void AttachOutgoing(Session s, MessageContext ctx, Inbox inbox, WsClient client, string ip, int port)
+    // Mantém exatamente UM link: o discado pelo menor deviceId. Determinístico
+    // nos dois lados — dispensa recusar handshake (fim do deadlock de duplicada).
+    private async Task ResolveDuplicatesAsync(Session s, Link? old, Link @new)
     {
+        if (old is null) return;
+        if (!old.IsOpen())
+        {
+            DetachLink(old);
+            return; // velho morto: o novo vale sem disputa
+        }
+        bool iAmSmaller = string.CompareOrdinal(_settings.DeviceId, s.Id) < 0;
+        bool keepNew = (@new.Outgoing == iAmSmaller);
+        if (!keepNew)
+        {
+            lock (_lock) { if (ReferenceEquals(s.Link, @new)) s.Link = old; }
+        }
+        _log($"[conn] {s.Id}: duplicada resolvida, mantida a discada pelo menor.");
+        var drop = keepNew ? old : @new;
+        try { await drop.Close(); } catch { }
+        DetachLink(drop);
+    }
+    private async Task AttachOutgoing(Session s, MessageContext ctx, Inbox inbox, WsClient client, string ip, int port)
+    {
+        var link = new Link
+        {
+            Outgoing = true,
+            Send = m => client.SendAsync(m),
+            Close = () => client.CloseAsync(),
+            IsOpen = () => client.IsOpen,
+            Ctx = ctx, Inbox = inbox, Cts = new CancellationTokenSource(), Tag = client
+        };
+        Link? old;
         lock (_lock)
         {
-            if (s.Link is not null) throw new InvalidOperationException("já conectado");
-            var link = new Link
-            {
-                Outgoing = true,
-                Send = m => client.SendAsync(m),
-                Close = () => client.CloseAsync(),
-                IsOpen = () => client.IsOpen,
-                Ctx = ctx, Inbox = inbox, Cts = new CancellationTokenSource(), Tag = client
-            };
-            s.Link = link; s.State = PeerConnState.Conectado;
+            old = s.Link; s.Link = link;
+            s.State = PeerConnState.Conectado;
             s.LastSeen = DateTime.UtcNow; s.Missed = 0;
             ctx.DeviceId = s.Id; ctx.Authenticated = true;
         }
+        await ResolveDuplicatesAsync(s, old, link);
+        bool mine;
+        lock (_lock) mine = ReferenceEquals(s.Link, link);
+        if (!mine) { _inboxes.TryRemove(ctx, out _); throw new IOException("link perdido na resolução."); }
         _pairs.Touch(s.Id, ip, port);
         _log($"[conn] {s.Id} via {ip}:{port}.");
         _ = SendOwnProfileAsync(ctx);
-        StartPingLoop(s, s.Link!);
+        StartPingLoop(s, link);
         Changed?.Invoke();
     }
 
@@ -547,10 +574,7 @@ public sealed class PeerManager : IAsyncDisposable
                         profile = new { name = me.Name, photoHash = me.PhotoHash }
                     }));
                     _limiter.Success(ip);
-                    Link? old0;
-                    lock (_lock) old0 = s.Link;
-                    if (old0 is not null) DetachLink(old0);
-                    AttachIncoming(s, ctx, inbox);
+                    await AttachIncoming(s, ctx, inbox);
                 }
                 finally { lock (_lock) s.Busy = false; }
                 _log($"[pair] pareado com {id}.");
@@ -585,34 +609,15 @@ public sealed class PeerManager : IAsyncDisposable
                 }
             }
             var session = EnsureSession(id);
-            bool refuse = false, replace = false;
-            Link? old = null;
             lock (_lock)
             {
                 // Sou maior e estou discando? Aborto minha discagem: a do menor vence.
+                // (A resolução final acontece no attach: nunca se recusa handshake.)
                 if (string.CompareOrdinal(_settings.DeviceId, id) > 0 && session.DialCts is not null)
                 {
                     try { session.DialCts.Cancel(); } catch { }
                     _log($"[conn] {id}: abortei minha discagem (entrada do menor vence).");
                 }
-                if (session.Link is not null)
-                {
-                    if (string.CompareOrdinal(_settings.DeviceId, id) < 0) refuse = true; // eu disco; recuso entrada
-                    else { replace = true; old = session.Link; session.Link = null; }
-                }
-            }
-            if (refuse)
-            {
-                await ctx.SendAsync(Message.Create("bye", new { reason = "duplicate" }));
-                await CloseServerCtx(ctx);
-                _log($"[conn] duplicada de {id} recusada (eu disco).");
-                return;
-            }
-            if (replace && old is not null)
-            {
-                DetachLink(old);
-                _ = old.Close(); // fundo, com teto: não trava o handshake
-                _log($"[conn] {id} rediscou certo; assumindo entrada.");
             }
             var secret2 = _pairs.GetSecret(id);
             if (secret2 is null) { _log($"[auth] {id}: SEM segredo?!"); await CloseServerCtx(ctx); return; }
@@ -633,7 +638,7 @@ public sealed class PeerManager : IAsyncDisposable
             }
             await ctx.SendAsync(Message.Create("auth_ok", new { hmac = ComputeHmac(secret2, resp.Nonce) }));
             _limiter.Success(ip);
-            AttachIncoming(session, ctx, inbox);
+            await AttachIncoming(session, ctx, inbox);
             _pairs.Touch(id, ip, p.Port, JoinIps(p.Ips));
             _log($"[auth] {id} autenticado (mútuo ok).");
             Changed?.Invoke();
@@ -641,11 +646,8 @@ public sealed class PeerManager : IAsyncDisposable
         finally { _inboxes.TryRemove(ctx, out _); }
     }
 
-    private void AttachIncoming(Session s, MessageContext ctx, Inbox inbox)
+    private async Task AttachIncoming(Session s, MessageContext ctx, Inbox inbox)
     {
-        Link? old;
-        lock (_lock) old = s.Link;
-        if (old is not null) DetachLink(old); // troca determinística
         var link = new Link
         {
             Outgoing = false,
@@ -654,14 +656,21 @@ public sealed class PeerManager : IAsyncDisposable
             IsOpen = () => ctx.Socket?.State == WebSocketState.Open,
             Ctx = ctx, Inbox = inbox, Cts = new CancellationTokenSource()
         };
+        Link? old;
         lock (_lock)
         {
-            s.Link = link; s.State = PeerConnState.Conectado;
+            old = s.Link; s.Link = link;
+            s.State = PeerConnState.Conectado;
             s.LastSeen = DateTime.UtcNow; s.Missed = 0;
             ctx.DeviceId = s.Id; ctx.Authenticated = true;
         }
+        await ResolveDuplicatesAsync(s, old, link);
+        bool mine;
+        lock (_lock) mine = ReferenceEquals(s.Link, link);
+        if (!mine) { _inboxes.TryRemove(ctx, out _); return; }
         _ = SendOwnProfileAsync(ctx);
         StartPingLoop(s, link);
+        Changed?.Invoke();
     }
 
     private static async Task CloseServerCtx(MessageContext ctx)
