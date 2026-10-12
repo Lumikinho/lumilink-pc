@@ -9,6 +9,7 @@ public sealed class AppSettings
 {
     public string DeviceId { get; set; } = "";
     public int Port { get; set; }
+    public bool ClipSync { get; set; } = true;
 
     public static AppSettings Load(string appDir)
     {

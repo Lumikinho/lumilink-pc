@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Windows;
+using LumiLink.Desktop.Clipboard;
 using LumiLink.Desktop.Messaging;
 using LumiLink.Desktop.Pairing;
 using LumiLink.Desktop.Peers;
@@ -20,6 +21,9 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profiles;
     private readonly MessageRouter _router;
     private readonly PeerManager _peers;
+    private readonly ClipStore _clipStore;
+    private readonly ClipMonitor _clipMonitor;
+    private readonly ClipSync _clipSync;
     private TrayIconManager? _tray;
     private static MainWindow? _instance;
     private CancellationTokenSource? _runCts;
@@ -38,6 +42,12 @@ public partial class MainWindow : Window
         _peers = new PeerManager(App.Settings, _certs, _pairs, _profiles, _pairing, _router, Log);
         _peers.Changed += () => Dispatcher.Invoke(RefreshPeers);
         _peers.Notify += (title, text) => Dispatcher.Invoke(() => _tray?.Balloon(title, text));
+        _clipStore = new ClipStore(App.AppDir);
+        _clipMonitor = new ClipMonitor();
+        _clipSync = new ClipSync(_router, _peers, _clipStore, _clipMonitor, App.Settings.DeviceId,
+            Log, (t, x) => Dispatcher.Invoke(() => _tray?.Balloon(t, x)),
+            () => App.Settings.ClipSync,
+            id => _pairs.Get(id)?.Name ?? id);
         _tray = new TrayIconManager("LumiLink", RestoreWindow, () => Close());
         Loaded += async (_, _) =>
         {
@@ -46,6 +56,7 @@ public partial class MainWindow : Window
                 Log("[app] iniciando...");
                 RefreshPeers();
                 ChkAutostart.IsChecked = IsAutostart();
+                _clipMonitor.Start();
                 _runCts = new CancellationTokenSource();
                 await _peers.StartAsync(_runCts.Token);
             }
@@ -141,6 +152,9 @@ public partial class MainWindow : Window
 
     private void BtnProfile_Click(object sender, RoutedEventArgs e)
         => new ProfileWindow(_profiles, async () => await _peers.BroadcastProfileUpdateAsync(), Log).ShowDialog();
+
+    private void BtnClip_Click(object sender, RoutedEventArgs e)
+        => new ClipHistoryWindow(_clipStore, _clipMonitor).ShowDialog();
 
     private static bool IsAutostart()
     {

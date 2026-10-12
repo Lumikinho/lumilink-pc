@@ -1,0 +1,29 @@
+<Window x:Class="LumiLink.Desktop.ClipHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Área de transferência" Height="480" Width="480">
+  <StackPanel Margin="12">
+    <CheckBox x:Name="ChkSync" Content="Sincronizar com pares" Margin="0,0,0,8"
+              Checked="ChkSync_Changed" Unchecked="ChkSync_Changed"/>
+    <ListBox x:Name="ClipList" Height="300" MouseDoubleClick="ClipList_DoubleClick">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <StackPanel Orientation="Horizontal">
+            <Image Source="{Binding Thumb}" Width="40" Height="40" Margin="0,0,8,0"/>
+            <StackPanel>
+              <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+              <TextBlock Text="{Binding Sub}" Opacity="0.7"/>
+            </StackPanel>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+      <Button Content="Copiar" Click="BtnCopy_Click" Margin="0,0,8,0"/>
+      <Button Content="Apagar" Click="BtnDelete_Click" Margin="0,0,8,0"/>
+      <Button Content="Limpar tudo" Click="BtnClear_Click" Margin="0,0,8,0"/>
+      <Button Content="Atualizar" Click="BtnRefresh_Click"/>
+    </StackPanel>
+    <TextBlock Text="Duplo clique copia de volta." Opacity="0.6" Margin="0,4,0,0"/>
+  </StackPanel>
+</Window>

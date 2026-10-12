@@ -249,6 +249,28 @@ public sealed class PeerManager : IAsyncDisposable
         catch { }
     }
 
+    // Difunde para todos os pares conectados (clipboard etc.). Best-effort por link.
+    public async Task BroadcastAsync(Message msg)
+    {
+        List<Link> links;
+        lock (_lock) links = _sessions.Values
+            .Select(s => s.Link).Where(l => l is not null && l.IsOpen()).ToList()!;
+        foreach (var l in links)
+        {
+            try { await l.Send(msg); } catch { }
+        }
+    }
+
+    // Envia a um par específico. false = sem conexão.
+    public async Task<bool> SendToAsync(string deviceId, Message msg)
+    {
+        Link? link;
+        lock (_lock) link = _sessions.TryGetValue(deviceId, out var s) ? s.Link : null;
+        if (link is null || !link.IsOpen()) return false;
+        try { await link.Send(msg); return true; }
+        catch { return false; }
+    }
+
     // Ping manual com medida: retorna o RTT ou lança (timeout/sem conexão).
     public async Task<TimeSpan> PingAsync(string deviceId, TimeSpan timeout)
     {
