@@ -1,0 +1,14 @@
+<Window x:Class="LumiLink.Desktop.WifiQrWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Espelhar via Wi-Fi (QR)" Height="520" Width="360">
+  <StackPanel Margin="16">
+    <TextBlock Text="No celular: Depuração sem fio → Parear com código QR. Escaneie:" TextWrapping="Wrap"/>
+    <Image x:Name="QrImage" Width="240" Height="240" Margin="0,8,0,0"/>
+    <TextBlock x:Name="StatusLabel" TextWrapping="Wrap" Margin="0,8,0,0"/>
+    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+      <Button Content="Prefiro digitar o código" Click="BtnManual_Click" Margin="0,0,8,0"/>
+      <Button Content="Cancelar" Click="BtnCancel_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

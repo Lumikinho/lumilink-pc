@@ -80,6 +80,89 @@ public static class ScreenMirror
         { UseShellExecute = false, CreateNoWindow = true });
     }
 
+    // QR p/ pareamento adb sem fio (estilo Android Studio): WIFI:T:ADB;S:NOME;P:SENHA;;
+    public static (string name, string password) NewWifiQr()
+    {
+        const string abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rnd = new Random();
+        string Gen(int n) => new(Enumerable.Range(0, n).Select(_ => abc[rnd.Next(abc.Length)]).ToArray());
+        return ($"LumiLink-{Gen(6)}", Gen(8));
+    }
+
+    public static string WifiQrText(string name, string password)
+        => $"WIFI:T:ADB;S:{name};P:{password};;";
+
+    // Espera um serviço aparecer no `adb mdns services`. Retorna "ip:porta".
+    public static async Task<string> WaitMdnsEndpointAsync(string adb, string service,
+        string? nameFilter, string? preferIp, TimeSpan timeout, CancellationToken ct)
+    {
+        var start = DateTime.UtcNow;
+        while (DateTime.UtcNow - start < timeout)
+        {
+            ct.ThrowIfCancellationRequested();
+            string? fallback = null;
+            try
+            {
+                foreach (var line in Run($"\"{adb}\"", "mdns services").Split('\n'))
+                {
+                    if (!line.Contains(service, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (nameFilter is not null && !line.Contains(nameFilter, StringComparison.OrdinalIgnoreCase)) continue;
+                    var toks = line.Split((char[])null!, StringSplitOptions.RemoveEmptyEntries);
+                    var last = toks.LastOrDefault() ?? "";
+                    var ipv4 = System.Text.RegularExpressions.Regex.IsMatch(last, @"^\d+\.\d+\.\d+\.\d+:\d+$");
+                    if (preferIp is not null && !last.StartsWith(preferIp + ":", StringComparison.Ordinal)) continue;
+                    if (ipv4) return last;
+                    fallback ??= last.Contains(':') ? last : null;
+                }
+                if (fallback is not null && preferIp is null) return fallback;
+            }
+            catch { }
+            await Task.Delay(1000, ct);
+        }
+        throw new TimeoutException($"serviço {service} não apareceu (verifique a depuração sem fio).");
+    }
+
+    public static void AdbPairWithPassword(string adb, string endpoint, string password)
+    {
+        var psi = new ProcessStartInfo($"\"{adb}\"", $"pair {endpoint} {password}")
+        {
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException("adb não iniciou.");
+        var output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+        if (!p.WaitForExit(30000)) { try { p.Kill(); } catch { } throw new TimeoutException("adb pair demorou."); }
+        if (!output.Contains("Successfully paired", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("adb pair falhou: " + output.Trim());
+    }
+
+    // Fluxo QR completo: espera pairing → pair → espera connect → connect → espelha.
+    public static async Task MirrorWifiQrAsync(string adb, string scrcpy, string name, string password,
+        string title, Action<string> log, Action<string> status, CancellationToken ct)
+    {
+        status("1. No celular: Depuração sem fio → Parear com QR. Escaneie o código.");
+        var pairEp = await WaitMdnsEndpointAsync(adb, "_adb-tls-pairing._tcp", name, null,
+            TimeSpan.FromMinutes(2), ct);
+        var pairIp = pairEp.Split(':')[0];
+        status($"2. Pareando com {pairEp}…");
+        log($"[mirror] adb pair {pairEp} …");
+        await Task.Run(() => AdbPairWithPassword(adb, pairEp, password), ct);
+        status("3. Aguardando serviço de conexão…");
+        var connEp = await WaitMdnsEndpointAsync(adb, "_adb-tls-connect._tcp", null, pairIp,
+            TimeSpan.FromMinutes(1), ct);
+        status($"4. Conectando {connEp}…");
+        Run($"\"{adb}\"", $"connect {connEp}");
+        await Task.Delay(2000, ct);
+        var target = AdbDevices(adb).FirstOrDefault(d => d == connEp)
+            ?? AdbDevices(adb).FirstOrDefault(d => d.StartsWith(pairIp + ":"))
+            ?? throw new InvalidOperationException("endpoint não apareceu no adb.");
+        Process.Start(new ProcessStartInfo(scrcpy,
+            $"-s {target} --window-title \"{title}\" --stay-awake")
+        { UseShellExecute = false, CreateNoWindow = true });
+        status("Espelhando. Mouse/teclado controlam o celular.");
+        log($"[mirror] espelhando via Wi-Fi ({target}).");
+    }
+
     // Pareamento adb sem fio: envia o código via stdin (não-interativo).
     public static void PairWifi(string adb, string ip, string pairPort, string code)
     {

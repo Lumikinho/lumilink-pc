@@ -198,9 +198,27 @@ public partial class MainWindow : Window
             {
                 Log($"[mirror] direto falhou ({ex.Message}); pedindo código.");
             }
-            // 2) pareamento sem fio com código.
-            new WifiPairWindow(hint, async (wip, wport, wcode) =>
-                await ScreenMirror.MirrorWifiPairAsync(adb, scrcpy, wip, wport, wcode, title, Log)).ShowDialog();
+            // 2) QR (recomendado): o celular anuncia, o PC pareia sozinho.
+            var (wname, wpass) = ScreenMirror.NewWifiQr();
+            var qcts = new CancellationTokenSource();
+            WifiQrWindow? qwin = null;
+            void OpenManual()
+            {
+                qcts.Cancel();
+                new WifiPairWindow(hint, async (wip, wport, wcode) =>
+                    await ScreenMirror.MirrorWifiPairAsync(adb, scrcpy, wip, wport, wcode, title, Log)).ShowDialog();
+            }
+            qwin = new WifiQrWindow(wname, wpass, OpenManual);
+            qwin.Closed += (_, _) => qcts.Cancel();
+            qwin.Show();
+            try
+            {
+                await ScreenMirror.MirrorWifiQrAsync(adb, scrcpy, wname, wpass, title, Log,
+                    s => qwin.Dispatcher.Invoke(() => qwin.SetStatus(s)), qcts.Token);
+                qwin.Dispatcher.Invoke(qwin.Close);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { qwin.Dispatcher.Invoke(() => qwin.SetStatus("Falhou: " + ex.Message)); }
         }
         catch (Exception ex)
         {
