@@ -27,12 +27,27 @@ public sealed class PcMediaMonitor : IDisposable
     {
         try
         {
-            _mgr = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            _mgr = await GlobalSystemMediaTransportControlsManager.RequestAsync();
             _mgr.SessionsChanged += (_, _) => _ = RefreshAsync();
             await RefreshAsync();
             _started = true;
+            _ = PositionLoopAsync();
         }
         catch (Exception ex) { _log($"[media] GSMTC indisponível: {ex.Message}"); }
+    }
+
+    // Mantém o tempo sincronizado: a cada 20s tocando reenvia a posição.
+    private async Task PositionLoopAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(20));
+                await SendIfChangedAsync();
+            }
+        }
+        catch { }
     }
 
     private async Task RefreshAsync()
