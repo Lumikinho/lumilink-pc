@@ -156,6 +156,45 @@ public partial class MainWindow : Window
     private void BtnClip_Click(object sender, RoutedEventArgs e)
         => new ClipHistoryWindow(_clipStore, _clipMonitor).ShowDialog();
 
+    private async void BtnMirror_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var peer = Selected ?? (PeerList.ItemsSource as List<PeerRow>)?.FirstOrDefault(p => p.State == "Conectado");
+            var scrcpy = ScreenMirror.FindScrcpy();
+            if (scrcpy is null)
+            {
+                System.Windows.MessageBox.Show("scrcpy não encontrado. Instale com: winget install Genymobile.scrcpy");
+                return;
+            }
+            var adb = ScreenMirror.FindAdb(scrcpy);
+            if (adb is null)
+            {
+                System.Windows.MessageBox.Show("adb não encontrado junto ao scrcpy.");
+                return;
+            }
+            var usb = ScreenMirror.AdbDevices(adb).FirstOrDefault(d => !d.Contains(':'));
+            if (usb is not null)
+            {
+                ScreenMirror.MirrorUsb(scrcpy, usb, $"LumiLink — {peer?.Name ?? "Android"}");
+                Log($"[mirror] espelhando via USB ({usb}). Mouse/teclado controlam o celular.");
+                return;
+            }
+            var ip = peer?.LastIp ?? "";
+            if (string.IsNullOrEmpty(ip))
+            {
+                System.Windows.MessageBox.Show("Sem USB e sem IP conhecido. Conecte o USB uma vez ou pareie de novo.");
+                return;
+            }
+            await ScreenMirror.MirrorWifiAsync(adb, scrcpy, ip, $"LumiLink — {peer?.Name ?? "Android"}", Log);
+        }
+        catch (Exception ex)
+        {
+            Log($"[mirror] falhou: {ex.Message}");
+            System.Windows.MessageBox.Show($"Espelhar falhou: {ex.Message}");
+        }
+    }
+
     private static bool IsAutostart()
     {
         using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");

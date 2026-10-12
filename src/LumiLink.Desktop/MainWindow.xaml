@@ -32,6 +32,9 @@
       <Button Content="Detalhes" Click="BtnDetail_Click" Margin="0,0,8,0"/>
       <Button Content="Esquecer" Click="BtnForget_Click" Margin="0,0,8,0"/>
       <Button Content="Meu perfil" Click="BtnProfile_Click" Margin="0,0,8,0"/>
+      <Button Content="Espelhar tela" Click="BtnMirror_Click"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
       <Button Content="Área de transferência" Click="BtnClip_Click"/>
     </StackPanel>
     <CheckBox x:Name="ChkAutostart" Content="Iniciar com o Windows" Margin="0,8,0,0"
