@@ -63,6 +63,39 @@ public static class ImageUtils
         return t.Length > 32 ? t[..32] : t;
     }
 
+    // aHash 8x8: identifica a IMAGEM (não os bytes) — sobrevive a re-encode PNG/JPEG.
+    // Usado no anti-eco do clipboard: cada salto re-codifica e muda os bytes.
+    public static ulong? AverageHash(byte[] bytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            var bmp = new System.Windows.Media.Imaging.BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.DecodePixelWidth = 32;
+            bmp.StreamSource = ms;
+            bmp.EndInit();
+            bmp.Freeze();
+            var gray = new System.Windows.Media.Imaging.FormatConvertedBitmap(
+                bmp, System.Windows.Media.PixelFormats.Gray8, null, 0);
+            var scaled = new System.Windows.Media.Imaging.TransformedBitmap(gray,
+                new System.Windows.Media.ScaleTransform(8.0 / gray.PixelWidth, 8.0 / gray.PixelHeight));
+            var px = new byte[64];
+            scaled.CopyPixels(px, 8, 0);
+            long sum = 0;
+            foreach (var b in px) sum += b;
+            var avg = sum / 64.0;
+            ulong h = 0;
+            for (var i = 0; i < 64; i++) if (px[i] > avg) h |= 1UL << i;
+            return h;
+        }
+        catch { return null; }
+    }
+
+    public static int HammingDistance(ulong a, ulong b)
+        => System.Numerics.BitOperations.PopCount(a ^ b);
+
     // Carrega para WPF sem travar o arquivo (OnLoad + Freeze). Null se falhar.
     public static System.Windows.Media.Imaging.BitmapImage? LoadPhoto(string path)
     {

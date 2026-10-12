@@ -13,6 +13,8 @@ public sealed class ClipMonitor : IDisposable
     private CancellationTokenSource? _cts;
     private readonly int _intervalMs;
     private string _lastHash = "";
+    private static readonly Dictionary<ulong, DateTime> _recentImg = new();
+    private static readonly object _imgLock = new();
     private readonly Dictionary<string, DateTime> _recent = new();
     private readonly object _lock = new();
 
@@ -40,6 +42,25 @@ public sealed class ClipMonitor : IDisposable
         var now = DateTime.UtcNow;
         foreach (var k in _recent.Where(kv => kv.Value < now).Select(kv => kv.Key).ToList())
             _recent.Remove(k);
+        foreach (var k in _recentImg.Where(kv => kv.Value < now).Select(kv => kv.Key).ToList())
+            _recentImg.Remove(k);
+    }
+
+    // Anti-eco por CONTEÚDO da imagem (aHash): sobrevive a re-encode entre pares.
+    public static void SuppressImage(ulong h, int seconds = 30)
+    {
+        lock (_imgLock) _recentImg[h] = DateTime.UtcNow.AddSeconds(seconds);
+    }
+
+    private static bool SeenImage(ulong h)
+    {
+        lock (_imgLock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var k in _recentImg.Where(kv => kv.Value < now).Select(kv => kv.Key).ToList())
+                _recentImg.Remove(k);
+            return _recentImg.Keys.Any(k => Profile.ImageUtils.HammingDistance(k, h) <= 8);
+        }
     }
 
     public void Start()
@@ -80,6 +101,9 @@ public sealed class ClipMonitor : IDisposable
                 if (img is null) return null;
                 var (bytes, mime) = EncodeImage(img);
                 if (bytes is null) return null;
+                var ah = Profile.ImageUtils.AverageHash(bytes);
+                if (ah.HasValue && SeenImage(ah.Value)) return null;
+                if (ah.HasValue) SuppressImage(ah.Value);
                 return new ClipContent(null, bytes, mime, Array.Empty<string>(),
                     ClipFileSession.ShaHex(bytes));
             }

@@ -58,6 +58,8 @@ public sealed class ClipSync : IAsyncDisposable
             else if (c.ImageBytes is not null)
             {
                 _monitor.Suppress(c.Hash);
+                var ah0 = Profile.ImageUtils.AverageHash(c.ImageBytes);
+                if (ah0.HasValue) ClipMonitor.SuppressImage(ah0.Value);
                 var ext = c.ImageMime == "image/jpeg" ? "jpg" : "png";
                 var path = Path.Combine(_store.ClipDir, $"clip-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.{ext}");
                 await File.WriteAllBytesAsync(path, c.ImageBytes);
@@ -155,6 +157,8 @@ public sealed class ClipSync : IAsyncDisposable
                 var path = Path.Combine(_store.ClipDir, $"clip-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{(mime.Contains("jpeg") ? ".jpg" : ".png")}");
                 File.WriteAllBytes(path, bytes);
                 _monitor.Suppress(ClipFileSession.ShaHex(bytes));
+                var ah1 = Profile.ImageUtils.AverageHash(bytes);
+                if (ah1.HasValue) ClipMonitor.SuppressImage(ah1.Value);
                 _store.AddImage(mime, path, bytes.Length, hash, ctx.DeviceId, ctx.DeviceId);
                 _monitor.SetImage(bytes);
                 _notify("Área de transferência", $"Imagem de {_peerName(ctx.DeviceId)}.");
