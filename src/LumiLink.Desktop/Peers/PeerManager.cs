@@ -15,7 +15,7 @@ using Message = LumiLink.Desktop.Messaging.Message;
 namespace LumiLink.Desktop.Peers;
 
 public enum PeerConnState { Desconectado, Conectando, Conectado }
-public sealed record PeerView(string DeviceId, string Name, string State, DateTime LastSeen, string LastIp, string PhotoHash);
+public sealed record PeerView(string DeviceId, string Name, string State, DateTime LastSeen, string LastIp, string PhotoHash, string Media = "");
 
 // Uma conexão por par. Só o menor deviceId disca; o maior espera 10 s (PROTOCOL.md §3).
 public sealed class PeerManager : IAsyncDisposable
@@ -73,6 +73,7 @@ public sealed class PeerManager : IAsyncDisposable
     private readonly RateLimiter _limiter = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (TaskCompletionSource<TimeSpan> tcs, Stopwatch sw)> _pingWaiters = new();
     private readonly Dictionary<string, Session> _sessions = new();
+    private readonly Dictionary<string, string> _media = new(); // deviceId -> "▶ título — artista"
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MessageContext, Inbox> _inboxes = new();
     private readonly object _lock = new();
     private SecureWebSocketServer? _server;
@@ -130,8 +131,10 @@ public sealed class PeerManager : IAsyncDisposable
             return _pairs.All.Select(r =>
             {
                 _sessions.TryGetValue(r.DeviceId, out var s);
+                _media.TryGetValue(r.DeviceId, out var med);
                 return new PeerView(r.DeviceId, r.Name, (s?.State ?? PeerConnState.Desconectado).ToString(),
-                    r.LastSeen, string.IsNullOrEmpty(r.LastIp) ? (s?.DiscIp ?? "") : r.LastIp, r.PhotoHash);
+                    r.LastSeen, string.IsNullOrEmpty(r.LastIp) ? (s?.DiscIp ?? "") : r.LastIp, r.PhotoHash,
+                    med ?? "");
             }).ToList();
         }
     }
@@ -230,6 +233,7 @@ public sealed class PeerManager : IAsyncDisposable
         }
         _pairs.Forget(deviceId);
         _profiles.ForgetPeer(deviceId);
+        lock (_lock) _media.Remove(deviceId);
         _log($"[pair] esquecido {deviceId}.");
         Changed?.Invoke();
     }
@@ -835,6 +839,31 @@ public sealed class PeerManager : IAsyncDisposable
             return Task.CompletedTask;
         });
         Messaging.EchoExample.Register(_router, _log);
+        _router.Register("media_status", (ctx, msg) =>
+        {
+            if (!ctx.Authenticated || ctx.DeviceId is null) return Task.CompletedTask;
+            try
+            {
+                var t = msg.Payload.TryGetProperty("title", out var tt) ? (tt.GetString() ?? "").Trim() : "";
+                if (t.Length > 64) t = t[..64];
+                var a = msg.Payload.TryGetProperty("artist", out var aa) ? (aa.GetString() ?? "").Trim() : "";
+                if (a.Length > 64) a = a[..64];
+                var playing = msg.Payload.TryGetProperty("playing", out var pp) && pp.ValueKind == JsonValueKind.True;
+                var line = t.Length == 0 ? "" : ((playing ? "▶ " : "⏸ ") + t + (a.Length == 0 ? "" : " — " + a));
+                string? old;
+                lock (_lock) _media.TryGetValue(ctx.DeviceId, out old);
+                if (old == line) return Task.CompletedTask;
+                lock (_lock) _media[ctx.DeviceId] = line;
+                if (line.Length > 0)
+                {
+                    _log($"[media] {ctx.DeviceId}: {line}");
+                    Notify?.Invoke("Tocando agora", line);
+                }
+                Changed?.Invoke();
+            }
+            catch { }
+            return Task.CompletedTask;
+        });
     }
 
     private async Task OnProfileAsync(MessageContext ctx, Message msg, bool update)

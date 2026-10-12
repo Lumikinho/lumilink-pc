@@ -25,6 +25,7 @@ public partial class PeerDetailWindow : Window
         if (p is null) { Close(); return; }
         NameLabel.Text = p.Name;
         StateLabel.Text = $"Estado: {p.State}";
+        MediaLabel.Text = string.IsNullOrEmpty(p.Media) ? "" : $"Ouvindo: {p.Media}";
         IdLabel.Text = $"id: {p.DeviceId}";
         AddrLabel.Text = $"Último IP: {(string.IsNullOrEmpty(p.LastIp) ? "(descoberta pendente)" : p.LastIp)}";
         SeenLabel.Text = $"Última conexão: {(p.LastSeen == default ? "nunca" : p.LastSeen.ToLocalTime().ToString("g"))}";

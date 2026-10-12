@@ -10,6 +10,7 @@
         <TextBlock x:Name="StateLabel"/>
       </StackPanel>
     </StackPanel>
+    <TextBlock x:Name="MediaLabel" FontWeight="Bold" Margin="0,4,0,0"/>
     <TextBlock x:Name="IdLabel" TextWrapping="Wrap" Margin="0,8,0,0" Opacity="0.7"/>
     <TextBlock x:Name="AddrLabel" Margin="0,4,0,0"/>
     <TextBlock x:Name="SeenLabel" Margin="0,4,0,0"/>

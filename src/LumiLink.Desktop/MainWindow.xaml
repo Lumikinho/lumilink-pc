@@ -22,7 +22,7 @@
             <Image Source="{Binding Photo}" Width="40" Height="40" Margin="0,0,8,0"/>
             <StackPanel>
               <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
-              <TextBlock Text="{Binding State}" Opacity="0.7"/>
+              <TextBlock Text="{Binding Sub}" Opacity="0.7"/>
             </StackPanel>
           </StackPanel>
         </DataTemplate>

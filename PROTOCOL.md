@@ -97,6 +97,7 @@ Sem QR. Dialer = quem disca (§3); listener = quem escuta:
 | `profile_photo` | ambos | `{ photoHash, mime, dataBase64 }` |
 | `clip_text` | ambos | `{ text, ts, source }` (texto ≤256 KB; `source` = deviceId de origem) |
 | `clip_image` | ambos | `{ mime, dataBase64, hash, w, h }` (imagem ≤3 MB; `hash` = SHA-256) |
+| `media_status` | par com mídia→par | `{ title, artist, app, playing, ts }` (só envia ao mudar; quem não tem fonte só exibe) |
 
 ## 6b. Clipboard (só texto e imagem)
 

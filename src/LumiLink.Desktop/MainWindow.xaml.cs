@@ -77,7 +77,7 @@ public partial class MainWindow : Window
     private void RefreshPeers()
     {
         var rows = _peers.GetPeers().Select(p => new PeerRow(
-            p.DeviceId, p.Name, p.State, p.LastIp,
+            p.DeviceId, p.Name, p.State, p.LastIp, p.Media,
             ImageUtils.LoadPhoto(_profiles.PeerPhotoPath(p.DeviceId)))).ToList();
         PeerList.ItemsSource = rows;
         var up = rows.Count(p => p.State == "Conectado");
@@ -257,7 +257,9 @@ public sealed class PeerRow
     public string Name { get; }
     public string State { get; }
     public string LastIp { get; }
+    public string Media { get; }
+    public string Sub => Media.Length == 0 ? State : $"{State} • {Media}";
     public System.Windows.Media.Imaging.BitmapImage? Photo { get; }
-    public PeerRow(string deviceId, string name, string state, string lastIp, System.Windows.Media.Imaging.BitmapImage? photo)
-    { DeviceId = deviceId; Name = name; State = state; LastIp = lastIp; Photo = photo; }
+    public PeerRow(string deviceId, string name, string state, string lastIp, string media, System.Windows.Media.Imaging.BitmapImage? photo)
+    { DeviceId = deviceId; Name = name; State = state; LastIp = lastIp; Media = media; Photo = photo; }
 }
