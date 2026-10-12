@@ -27,7 +27,7 @@ public sealed class PcMediaMonitor : IDisposable
     {
         try
         {
-            _mgr = await GlobalSystemMediaTransportControlsManager.RequestAsync();
+            _mgr = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
             _mgr.SessionsChanged += (_, _) => _ = RefreshAsync();
             await RefreshAsync();
             _started = true;
