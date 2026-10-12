@@ -93,6 +93,7 @@ public static class ScreenMirror
         => $"WIFI:T:ADB;S:{name};P:{password};;";
 
     // Espera um serviço aparecer no `adb mdns services`. Retorna "ip:porta".
+    // Poll curto (250ms): avança no instante em que anuncia, sem sleep fixo.
     public static async Task<string> WaitMdnsEndpointAsync(string adb, string service,
         string? nameFilter, string? preferIp, TimeSpan timeout, CancellationToken ct)
     {
@@ -117,7 +118,7 @@ public static class ScreenMirror
                 if (fallback is not null && preferIp is null) return fallback;
             }
             catch { }
-            await Task.Delay(1000, ct);
+            await Task.Delay(250, ct);
         }
         throw new TimeoutException($"serviço {service} não apareceu (verifique a depuração sem fio).");
     }
@@ -152,10 +153,14 @@ public static class ScreenMirror
             TimeSpan.FromMinutes(1), ct);
         status($"4. Conectando {connEp}…");
         Run($"\"{adb}\"", $"connect {connEp}");
-        await Task.Delay(2000, ct);
-        var target = AdbDevices(adb).FirstOrDefault(d => d == connEp)
-            ?? AdbDevices(adb).FirstOrDefault(d => d.StartsWith(pairIp + ":"))
-            ?? throw new InvalidOperationException("endpoint não apareceu no adb.");
+        string? target = null;
+        for (var i = 0; i < 40 && target is null; i++)
+        {
+            target = AdbDevices(adb).FirstOrDefault(d => d == connEp)
+                ?? AdbDevices(adb).FirstOrDefault(d => d.StartsWith(pairIp + ":"));
+            if (target is null) await Task.Delay(250, ct);
+        }
+        if (target is null) throw new InvalidOperationException("endpoint não apareceu no adb.");
         Process.Start(new ProcessStartInfo(scrcpy,
             $"-s {target} --window-title \"{title}\" --stay-awake")
         { UseShellExecute = false, CreateNoWindow = true });
@@ -186,8 +191,7 @@ public static class ScreenMirror
     {
         await Task.Run(() => PairWifi(adb, ip, pairPort, code));
         log("[mirror] pareado no adb. Procurando endpoint…");
-        await Task.Delay(2000);
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < 40; i++)
         {
             var target = AdbDevices(adb).FirstOrDefault(d => d.StartsWith(ip + ":"));
             if (target is not null)
@@ -198,34 +202,43 @@ public static class ScreenMirror
                 log($"[mirror] espelhando via Wi-Fi ({target}).");
                 return;
             }
-            await Task.Delay(2000);
+            await Task.Delay(250);
         }
         throw new InvalidOperationException("pareou mas o endpoint não apareceu.");
     }
 
     // Wi-Fi: tenta conectar direto; se não der e houver USB, ativa tcpip e conecta.
+    // Sem sleeps fixos: avança a cada 250ms assim que o endpoint aparece.
     public static async Task MirrorWifiAsync(string adb, string scrcpy, string ip, string title, Action<string> log)
     {
         var target = $"{ip}:5555";
         log($"[mirror] conectando adb em {target}…");
         Run($"\"{adb}\"", $"connect {target}");
-        await Task.Delay(1500);
-        if (!AdbDevices(adb).Any(d => d == target))
+        if (!await WaitDeviceAsync(adb, target, 4000))
         {
             var usb = AdbDevices(adb).FirstOrDefault(d => !d.Contains(':'));
             if (usb is null) throw new InvalidOperationException("sem USB e sem adb Wi-Fi (ative a depuração sem fio).");
             log("[mirror] ativando tcpip pelo USB…");
             Run($"\"{adb}\"", $"-s {usb} tcpip 5555");
-            await Task.Delay(2000);
             Run($"\"{adb}\"", $"connect {target}");
-            await Task.Delay(1500);
-            if (!AdbDevices(adb).Any(d => d == target))
+            if (!await WaitDeviceAsync(adb, target, 8000))
                 throw new InvalidOperationException($"adb não alcançou {target}.");
         }
         Process.Start(new ProcessStartInfo(scrcpy,
             $"-s {target} --window-title \"{title}\" --stay-awake")
         { UseShellExecute = false, CreateNoWindow = true });
         log($"[mirror] espelhando via Wi-Fi ({target}).");
+    }
+
+    private static async Task<bool> WaitDeviceAsync(string adb, string target, int timeoutMs)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            if (AdbDevices(adb).Any(d => d == target)) return true;
+            await Task.Delay(250);
+        }
+        return AdbDevices(adb).Any(d => d == target);
     }
 
     private static string Run(string exe, string args)
