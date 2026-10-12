@@ -872,14 +872,7 @@ public sealed class PeerManager : IAsyncDisposable
                 if (a.Length > 64) a = a[..64];
                 var playing = msg.Payload.TryGetProperty("playing", out var pp) && pp.ValueKind == JsonValueKind.True;
                 var state = msg.Payload.TryGetProperty("state", out var ss) ? (ss.GetString() ?? "") : "";
-                var mark = state switch
-                {
-                    "playing" => "▶ ",
-                    "paused" => "⏸ ",
-                    "stopped" => "⏹ ",
-                    _ => playing ? "▶ " : "⏸ ",
-                };
-                var line = t.Length == 0 ? "" : (mark + t + (a.Length == 0 ? "" : " — " + a));
+                var line = t.Length == 0 ? "" : (t + (a.Length == 0 ? "" : " — " + a));
                 string? old;
                 lock (_lock) _media.TryGetValue(ctx.DeviceId, out old);
                 if (old == line) return Task.CompletedTask;
