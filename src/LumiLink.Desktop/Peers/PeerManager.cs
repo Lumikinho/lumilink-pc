@@ -82,6 +82,7 @@ public sealed class PeerManager : IAsyncDisposable
 
     public event Action? Changed;
     public event Action<string, string>? Notify; // (título, texto) p/ balão da bandeja
+    public event Func<string, long, Task>? MediaCmd; // cmd do par (play/pause/toggle/next/prev/seek)
     public string DeviceId => _settings.DeviceId;
     public int Port => _settings.Port;
     public string OwnFingerprint => _certs.Fingerprint;
@@ -839,6 +840,18 @@ public sealed class PeerManager : IAsyncDisposable
             return Task.CompletedTask;
         });
         Messaging.EchoExample.Register(_router, _log);
+        _router.Register("media_cmd", async (ctx, msg) =>
+        {
+            if (!ctx.Authenticated) return;
+            try
+            {
+                var cmd = msg.Payload.TryGetProperty("cmd", out var c) ? (c.GetString() ?? "") : "";
+                var pos = msg.Payload.TryGetProperty("pos", out var p) && p.ValueKind == JsonValueKind.Number
+                    ? p.GetInt64() : -1L;
+                if (MediaCmd is not null) await MediaCmd(cmd, pos);
+            }
+            catch (Exception ex) { _log($"[media] cmd ignorado: {ex.Message}"); }
+        });
         _router.Register("media_status", (ctx, msg) =>
         {
             if (!ctx.Authenticated || ctx.DeviceId is null) return Task.CompletedTask;

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using LumiLink.Desktop.Clipboard;
+using LumiLink.Desktop.MediaSync;
 using LumiLink.Desktop.Messaging;
 using LumiLink.Desktop.Pairing;
 using LumiLink.Desktop.Peers;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
     private readonly ClipStore _clipStore;
     private readonly ClipMonitor _clipMonitor;
     private readonly ClipSync _clipSync;
+    private readonly PcMediaMonitor _pcMedia;
     private TrayIconManager? _tray;
     private static MainWindow? _instance;
     private CancellationTokenSource? _runCts;
@@ -48,6 +50,8 @@ public partial class MainWindow : Window
             Log, (t, x) => Dispatcher.Invoke(() => _tray?.Balloon(t, x)),
             () => App.Settings.ClipSync,
             id => _pairs.Get(id)?.Name ?? id);
+        _pcMedia = new PcMediaMonitor(_peers, Log);
+        _peers.MediaCmd += (cmd, pos) => _pcMedia.HandleCmdAsync(cmd, pos);
         _tray = new TrayIconManager("LumiLink", RestoreWindow, () => Close());
         Loaded += async (_, _) =>
         {
@@ -57,6 +61,7 @@ public partial class MainWindow : Window
                 RefreshPeers();
                 ChkAutostart.IsChecked = IsAutostart();
                 _clipMonitor.Start();
+                _ = _pcMedia.StartAsync();
                 _runCts = new CancellationTokenSource();
                 await _peers.StartAsync(_runCts.Token);
             }
