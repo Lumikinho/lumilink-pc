@@ -93,19 +93,50 @@ public sealed class SecureWebSocketServer
 
     public void EnsureFirewallRule(int port)
     {
-        // Tenta criar regra de entrada; se falhar, loga aviso p/ criar manualmente.
+        // Leitura não pede admin: só eleva (UAC) se a regra estiver faltando.
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo("netsh",
-                $"advfirewall firewall add rule name=\"LumiLink {port}\" dir=in action=allow protocol=TCP localport={port}")
+            if (RuleAllows(port))
+            {
+                _log("[fw] regra ok, sem UAC.");
+                return;
+            }
+            // Nome estável "LumiLink" (antes criava uma por porta): apaga restos e cria uma só.
+            var args = "/c netsh advfirewall firewall delete rule name=\"LumiLink\""
+                + " & netsh advfirewall firewall delete rule name=\"LumiLink 52431\""
+                + $" & netsh advfirewall firewall add rule name=\"LumiLink\" dir=in action=allow protocol=TCP localport={port}";
+            var psi = new System.Diagnostics.ProcessStartInfo("cmd", args)
             { Verb = "runas", UseShellExecute = true, CreateNoWindow = true };
-            // Não bloqueia: dispara e segue. Falha comum sem admin -> aviso.
             System.Diagnostics.Process.Start(psi);
-            _log("[fw] regra de firewall solicitada (aceite o UAC se pedir).");
+            _log("[fw] regra de firewall solicitada (aceite o UAC uma vez).");
         }
         catch (Exception ex)
         {
             _log($"[fw] AVISO: libere a porta TCP {port} no Firewall do Windows. Detalhe: {ex.Message}");
         }
+    }
+
+    private static bool RuleAllows(int port)
+    {
+        try
+        {
+            var type = Type.GetTypeFromProgID("HNetCfg.FwPolicy2");
+            if (type is null) return false;
+            dynamic policy = System.Activator.CreateInstance(type)!;
+            foreach (dynamic r in policy.Rules)
+            {
+                try
+                {
+                    // IN=1, ALLOW=1, TCP=6
+                    if ((string)r.Name == "LumiLink" && (bool)r.Enabled
+                        && (int)r.Direction == 1 && (int)r.Action == 1 && (int)r.Protocol == 6
+                        && ((string)r.LocalPorts).Split(',').Any(p => p.Trim() == port.ToString()))
+                        return true;
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return false;
     }
 }

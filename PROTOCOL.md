@@ -97,20 +97,17 @@ Sem QR. Dialer = quem disca (§3); listener = quem escuta:
 | `profile_photo` | ambos | `{ photoHash, mime, dataBase64 }` |
 | `clip_text` | ambos | `{ text, ts, source }` (texto ≤256 KB; `source` = deviceId de origem) |
 | `clip_image` | ambos | `{ mime, dataBase64, hash, w, h }` (imagem ≤3 MB; `hash` = SHA-256) |
-| `clip_file_offer` | remetente→par | `{ fileId, name, size, sha256 }` |
-| `clip_file_accept` | par→remetente | `{ fileId, accept }` (remetente espera até 30 s) |
-| `clip_file_chunk` | remetente→par | `{ fileId, seq, data }` (32 KB raw em base64, `seq` desde 0, em ordem) |
-| `clip_file_done` | remetente→par | `{ fileId, sha256 }` (receptor confere e salva) |
 
-## 6b. Clipboard (texto, imagem, arquivo)
+## 6b. Clipboard (só texto e imagem)
 
-- Cada nó monitora a área de transferência local; mudança → salva no **histórico SQLite**
-  local e difunde aos pares conectados (se a sincronização estiver ativa).
-- **Anti-eco:** hash do conteúdo aplicado/enviado é lembrado por 10 s; mudança local com
-  hash conhecido não é reenviada (sem isso, A→B→A entraria em loop).
-- Receber = salvar no histórico + aplicar na área local + notificar. Arquivo: montar por
-  `seq`, conferir SHA-256 no `done`; divergência descarta. Sem chunk por 60 s aborta.
-- Limites: texto 256 KB, imagem 3 MB (reduz se maior), arquivo 200 MB. Fora disso: ignora + loga.
+- Cada nó monitora a área de transferência local (texto e imagem, ex. captura de tela);
+  mudança → salva no **histórico SQLite** local e difunde aos pares conectados
+  (se a sincronização estiver ativa). Arquivos em geral NÃO sincronizam.
+- **Anti-eco:** texto/arquivo por hash SHA-256; imagem por hash perceptual (aHash),
+  que sobrevive ao re-encode PNG↔JPEG entre os pares. Visto nos últimos 10 s (30 s
+  p/ imagem) não é reenviado.
+- Receber = salvar no histórico + aplicar na área local + notificar.
+- Limites: texto 256 KB, imagem 3 MB (reduz se maior). Fora disso: ignora + loga.
 
 Roteador por `type` (dicionário de handlers) — funções novas sem mexer na base.
 

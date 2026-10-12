@@ -46,6 +46,12 @@ public sealed class ClipMonitor : IDisposable
             _recentImg.Remove(k);
     }
 
+    public static string ShaHex(byte[] data)
+        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)).ToLowerInvariant();
+
+    public static string ShaHex(string text)
+        => ShaHex(System.Text.Encoding.UTF8.GetBytes(text));
+
     // Anti-eco por CONTEÚDO da imagem (aHash): sobrevive a re-encode entre pares.
     public static void SuppressImage(ulong h, int seconds = 30)
     {
@@ -105,26 +111,15 @@ public sealed class ClipMonitor : IDisposable
                 if (ah.HasValue && SeenImage(ah.Value)) return null;
                 if (ah.HasValue) SuppressImage(ah.Value);
                 return new ClipContent(null, bytes, mime, Array.Empty<string>(),
-                    ClipFileSession.ShaHex(bytes));
-            }
-            if (System.Windows.Clipboard.ContainsFileDropList())
-            {
-                var list = System.Windows.Clipboard.GetFileDropList();
-                if (list is null || list.Count == 0) return null;
-                var files = list.Cast<string>().Where(File.Exists).Take(20).ToArray();
-                if (files.Length == 0) return null;
-                var total = files.Sum(f => new FileInfo(f).Length);
-                if (total > 200L * 1024 * 1024) return null;
-                return new ClipContent(null, null, "", files,
-                    ClipFileSession.ShaHex(string.Join("|", files.OrderBy(x => x)
-                        .Select(f => f + ":" + new FileInfo(f).Length))));
+                    ClipMonitor.ShaHex(bytes));
             }
             if (System.Windows.Clipboard.ContainsText())
             {
                 var t = System.Windows.Clipboard.GetText();
                 if (string.IsNullOrEmpty(t) || t.Length > 256 * 1024) return null;
-                return new ClipContent(t, null, "", Array.Empty<string>(), ClipFileSession.ShaHex(t));
+                return new ClipContent(t, null, "", Array.Empty<string>(), ClipMonitor.ShaHex(t));
             }
+            // Arquivos em geral: ignorados de propósito (só texto e imagem sincronizam).
         }
         catch { }
         return null;
@@ -183,7 +178,7 @@ public sealed class ClipMonitor : IDisposable
 
     public void SetText(string text) => OnSta(() =>
     {
-        try { System.Windows.Clipboard.SetText(text); _lastHash = ClipFileSession.ShaHex(text); } catch { }
+        try { System.Windows.Clipboard.SetText(text); _lastHash = ClipMonitor.ShaHex(text); } catch { }
     });
 
     public void SetImage(byte[] bytes) => OnSta(() =>
@@ -193,7 +188,7 @@ public sealed class ClipMonitor : IDisposable
             var bmp = DecodeImage(bytes);
             if (bmp is null) return;
             System.Windows.Clipboard.SetImage(bmp);
-            _lastHash = ClipFileSession.ShaHex(bytes);
+            _lastHash = ClipMonitor.ShaHex(bytes);
         }
         catch { }
     });
@@ -205,7 +200,7 @@ public sealed class ClipMonitor : IDisposable
             var coll = new System.Collections.Specialized.StringCollection();
             coll.AddRange(paths.Where(File.Exists).ToArray());
             if (coll.Count > 0) System.Windows.Clipboard.SetFileDropList(coll);
-            _lastHash = ClipFileSession.ShaHex(string.Join("|", paths));
+            _lastHash = ClipMonitor.ShaHex(string.Join("|", paths));
         }
         catch { }
     });
