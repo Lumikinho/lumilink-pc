@@ -461,7 +461,7 @@ public sealed class PeerManager : IAsyncDisposable
             var hmacBack = ok.Payload.Deserialize<AuthOkPayload>(Message.PayloadOptions)?.Hmac;
             if (!string.Equals(hmacBack, ComputeHmac(secret, nd), StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("HMAC do par inválido (mútuo).");
-            AttachOutgoing(s, ctx, inbox, client, ip, port);
+            await AttachOutgoing(s, ctx, inbox, client, ip, port);
             _log($"[auth] {s.Id} autenticado (mútuo ok).");
         }
         catch (OperationCanceledException) when (myCts.IsCancellationRequested)

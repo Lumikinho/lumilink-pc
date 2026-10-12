@@ -34,4 +34,27 @@ public sealed class ClipTests : IDisposable
         store.Clear();
         Assert.Empty(store.List(10));
     }
+
+    [Fact]
+    public void FileAssemblerOrderAndVerify()
+    {
+        var dir = Path.Combine(_dir, "parts");
+        var data = new byte[] { 1, 2, 3, 4, 5 };
+        using var s = new LumiLink.Desktop.Transfer.FileAssembler(
+            dir, "f1", "a.bin", 5, LumiLink.Desktop.Transfer.FileAssembler.ShaHex(data));
+        Assert.False(s.Feed(1, new byte[] { 9 }));
+        Assert.True(s.Feed(0, new byte[] { 1, 2, 3 }));
+        Assert.True(s.Feed(1, new byte[] { 4, 5 }));
+        Assert.True(s.VerifyAndClose(out var hex));
+        Assert.Equal(LumiLink.Desktop.Transfer.FileAssembler.ShaHex(data), hex);
+    }
+
+    [Fact]
+    public void FileAssemblerBadHash()
+    {
+        var dir = Path.Combine(_dir, "parts2");
+        using var s = new LumiLink.Desktop.Transfer.FileAssembler(dir, "f2", "b.bin", 2, "deadbeef");
+        s.Feed(0, new byte[] { 1, 2 });
+        Assert.False(s.VerifyAndClose(out _));
+    }
 }

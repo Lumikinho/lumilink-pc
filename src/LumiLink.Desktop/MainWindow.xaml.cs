@@ -4,6 +4,7 @@ using System.Windows;
 using LumiLink.Desktop.Clipboard;
 using LumiLink.Desktop.MediaSync;
 using LumiLink.Desktop.Messaging;
+using LumiLink.Desktop.Transfer;
 using LumiLink.Desktop.Pairing;
 using LumiLink.Desktop.Peers;
 using LumiLink.Desktop.Profile;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
     private readonly ClipStore _clipStore;
     private readonly ClipMonitor _clipMonitor;
     private readonly ClipSync _clipSync;
+    private readonly FileTransfer _fileTransfer;
     private readonly PcMediaMonitor _pcMedia;
     private TrayIconManager? _tray;
     private static MainWindow? _instance;
@@ -52,6 +54,9 @@ public partial class MainWindow : Window
             id => _pairs.Get(id)?.Name ?? id);
         _pcMedia = new PcMediaMonitor(_peers, Log);
         _peers.MediaCmd += (cmd, pos) => _pcMedia.HandleCmdAsync(cmd, pos);
+        _fileTransfer = new FileTransfer(_router, _peers, _clipStore, App.Settings.DeviceId,
+            Log, (t, x) => Dispatcher.Invoke(() => _tray?.Balloon(t, x)),
+            id => _pairs.Get(id)?.Name ?? id);
         _tray = new TrayIconManager("LumiLink", RestoreWindow, () => Close());
         Loaded += async (_, _) =>
         {
@@ -151,7 +156,7 @@ public partial class MainWindow : Window
     private void OpenDetail()
     {
         if (Selected is null) return;
-        new PeerDetailWindow(_peers, _profiles, Selected.DeviceId).ShowDialog();
+        new PeerDetailWindow(_peers, _profiles, _fileTransfer, Selected.DeviceId).ShowDialog();
         RefreshPeers();
     }
 
@@ -160,6 +165,24 @@ public partial class MainWindow : Window
 
     private void BtnClip_Click(object sender, RoutedEventArgs e)
         => new ClipHistoryWindow(_clipStore, _clipMonitor).ShowDialog();
+
+    private async void BtnSendFile_Click(object sender, RoutedEventArgs e)
+    {
+        var peer = Selected ?? (PeerList.ItemsSource as List<PeerRow>)?.FirstOrDefault(p => p.State == "Conectado");
+        if (peer is null)
+        {
+            System.Windows.MessageBox.Show("Selecione um par conectado.");
+            return;
+        }
+        var dlg = new Microsoft.Win32.OpenFileDialog { Title = $"Enviar arquivo para {peer.Name}" };
+        if (dlg.ShowDialog() != true) return;
+        try { await _fileTransfer.SendFileAsync(peer.DeviceId, dlg.FileName); }
+        catch (Exception ex)
+        {
+            Log($"[file] envio falhou: {ex.Message}");
+            System.Windows.MessageBox.Show($"Envio falhou: {ex.Message}");
+        }
+    }
 
     private async void BtnMirror_Click(object sender, RoutedEventArgs e)
     {

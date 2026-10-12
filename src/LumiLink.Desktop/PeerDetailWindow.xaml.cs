@@ -10,12 +10,13 @@ public partial class PeerDetailWindow : Window
 {
     private readonly PeerManager _peers;
     private readonly ProfileStore _profiles;
+    private readonly Transfer.FileTransfer _files;
     private readonly string _id;
 
-    public PeerDetailWindow(PeerManager peers, ProfileStore profiles, string id)
+    public PeerDetailWindow(PeerManager peers, ProfileStore profiles, Transfer.FileTransfer files, string id)
     {
         InitializeComponent();
-        _peers = peers; _profiles = profiles; _id = id;
+        _peers = peers; _profiles = profiles; _files = files; _id = id;
         Refresh();
     }
 
@@ -44,6 +45,14 @@ public partial class PeerDetailWindow : Window
     {
         await _peers.ForgetAsync(_id);
         Close();
+    }
+
+    private async void BtnSendFile_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog { Title = "Enviar arquivo" };
+        if (dlg.ShowDialog() != true) return;
+        try { await _files.SendFileAsync(_id, dlg.FileName); }
+        catch (Exception ex) { ErrLabel.Text = $"Envio falhou: {ex.Message}"; }
     }
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
